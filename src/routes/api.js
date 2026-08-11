@@ -5,6 +5,7 @@ const authController = require('../controllers/authController');
 const courtsController = require('../controllers/courtsController');
 const bookingController = require('../controllers/bookingController');
 const adminController = require('../controllers/adminController');
+const surveyController = require('../controllers/surveyController');
 
 // Auth endpoints
 router.post('/auth/login', authController.login);
@@ -60,6 +61,10 @@ router.get('/debug-env', (req, res) => {
         googleClientId: process.env.GOOGLE_CLIENT_ID || 'missing'
     });
 });
+
+// Survey endpoints
+router.post('/surveys', surveyController.submitSurvey);
+router.get('/admin/surveys/stats', surveyController.getSurveyStats);
 
 // Admin endpoints
 router.get('/admin/courts', adminController.getAdminCourts);

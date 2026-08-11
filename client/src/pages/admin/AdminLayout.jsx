@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
-import { ShieldHalf, MapPin, Clock, CalendarX, QrCode, LogOut, RotateCw, Home, Shield, Settings, Users } from 'lucide-react';
+import { ShieldHalf, MapPin, Clock, CalendarX, QrCode, LogOut, RotateCw, Home, Shield, Settings, Users, PieChart } from 'lucide-react';
 import axios from 'axios';
 
 export default function AdminLayout({ user, onLogout }) {
@@ -115,6 +115,15 @@ export default function AdminLayout({ user, onLogout }) {
             }`}
           >
             <Settings size={18} /> ตั้งค่าระบบ
+          </Link>
+
+          <Link
+            to="/admin/surveys"
+            className={`shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition ${
+              path === '/admin/surveys' ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/30' : 'text-slate-300 hover:bg-slate-900'
+            }`}
+          >
+            <PieChart size={18} /> รายงานความพึงพอใจ
           </Link>
         </nav>
 

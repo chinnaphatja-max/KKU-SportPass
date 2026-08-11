@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { CalendarPlus, CheckCircle2, QrCode, PersonStanding, MapPin, AlertCircle, Check, X, Clock, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Swords, Zap } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, QrCode, PersonStanding, MapPin, AlertCircle, Check, X, Clock, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Swords, Zap, Star } from 'lucide-react';
 import axios from 'axios';
 import { formatThaiDate } from '../utils/date';
 
@@ -125,6 +125,32 @@ export default function Dashboard() {
               <span className="hidden md:block text-[11px] text-gray-500 mt-1">{item.desc}</span>
             </div>
           ))}
+        </motion.section>
+
+        {/* Satisfaction Survey Banner */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-8"
+        >
+          <Link to="/survey" className="block relative overflow-hidden bg-gradient-to-r from-orange-500 to-amber-500 rounded-3xl p-6 md:p-8 text-white shadow-lg hover:shadow-xl transition-shadow group">
+            <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:scale-110 transition-transform duration-700"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shrink-0">
+                  <Star size={28} className="text-white" fill="currentColor" />
+                </div>
+                <div>
+                  <h3 className="text-xl md:text-2xl font-bold mb-1">📝 ทำแบบประเมินความพึงพอใจ</h3>
+                  <p className="text-orange-50 font-medium text-sm md:text-base">ช่วยเราพัฒนา KKU SportPass ให้ดียิ่งขึ้น เพื่อประสบการณ์ที่ยอดเยี่ยมของทุกคน!</p>
+                </div>
+              </div>
+              <div className="shrink-0 bg-white text-orange-600 font-bold px-6 py-3 rounded-xl shadow-sm group-hover:bg-orange-50 transition-colors w-full md:w-auto text-center">
+                เริ่มทำแบบประเมิน
+              </div>
+            </div>
+          </Link>
         </motion.section>
 
         {/* Interactive Map Section */}

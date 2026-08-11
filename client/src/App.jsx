@@ -14,6 +14,8 @@ import About from './pages/About';
 import Manual from './pages/Manual';
 import MockUsersInfo from './pages/MockUsersInfo';
 
+import Survey from './pages/Survey';
+
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminCourts from './pages/admin/AdminCourts';
 import AdminTimeslots from './pages/admin/AdminTimeslots';
@@ -22,6 +24,7 @@ import AdminQR from './pages/admin/AdminQR';
 import QRPosterPrint from './pages/admin/QRPosterPrint';
 import AdminAdmins from './pages/admin/AdminAdmins';
 import AdminSettings from './pages/admin/AdminSettings';
+import AdminSurveys from './pages/admin/AdminSurveys';
 
 function Navigation({ user }) {
   const location = useLocation();
@@ -148,6 +151,7 @@ export default function App() {
           <Route path="admins" element={<AdminAdmins user={user} />} />
           <Route path="mock-users" element={<MockUsersInfo />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="surveys" element={<AdminSurveys />} />
         </Route>
 
         <Route path="/" element={
@@ -158,6 +162,9 @@ export default function App() {
 
         <Route path="/login" element={<Login onLoginSuccess={checkAuth} />} />
         <Route path="/register" element={<Register onLoginSuccess={checkAuth} />} />
+        
+        {/* Make survey accessible without UserLayout so it takes full screen nicely */}
+        <Route path="/survey" element={<Survey />} />
 
         <Route
           path="/*"
@@ -170,6 +177,7 @@ export default function App() {
                 <Route path="scan" element={<ScanCheckIn user={user} />} />
                 <Route path="bookings" element={<MyBookings user={user} />} />
               </Routes>
+
             </UserLayout>
           }
         />
