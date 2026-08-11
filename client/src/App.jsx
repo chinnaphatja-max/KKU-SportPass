@@ -11,6 +11,7 @@ import MyBookings from './pages/MyBookings';
 import ScanCheckIn from './pages/ScanCheckIn';
 import CourtBooking from './pages/CourtBooking';
 import About from './pages/About';
+import Manual from './pages/Manual';
 import MockUsersInfo from './pages/MockUsersInfo';
 
 import AdminLayout from './pages/admin/AdminLayout';
@@ -37,72 +38,56 @@ function Navigation({ user }) {
           <div className="w-10 h-10 bg-brand-600 rounded-full text-white flex items-center justify-center -mt-6 shadow-lg shadow-brand-500/30 border-4 border-white hover:bg-brand-500 transition">
             <ScanLine size={18} />
           </div>
-          <span className="text-[10px] font-semibold mt-1">เช็คอิน</span>
+          <span className="text-[10px] font-semibold mt-1">สแกน</span>
         </Link>
         <Link to="/bookings" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition ${path === '/bookings' ? 'text-brand-600 bg-brand-50' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
           <CalendarCheck size={20} />
           <span className="text-[10px] font-semibold">การจอง</span>
         </Link>
-        <Link to="/about" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition ${path === '/about' ? 'text-brand-600 bg-brand-50' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
+        <Link to="/manual" className={`flex flex-col items-center gap-1 p-2 rounded-xl transition ${path === '/manual' ? 'text-brand-600 bg-brand-50' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}>
           <Info size={20} />
-          <span className="text-[10px] font-semibold">ผู้ศึกษา</span>
+          <span className="text-[10px] font-semibold">คู่มือ</span>
         </Link>
-
-
       </div>
     </nav>
   );
 }
 
-function Header({ user, onLogout }) {
-  return (
-    <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-        <Link to="/" className="flex items-center gap-2.5">
-          <img
-            src="/KKU_SportPass.svg"
-            alt="KKU SportPass Logo"
-            className="h-8 w-auto"
-            onError={(e) => { e.target.onerror=null; e.target.src="/KKU_SportPass.png"; }}
-          />
-          <h1 className="font-extrabold text-xl tracking-tight text-gray-900">KKU SportPass</h1>
-        </Link>
-        <div className="flex items-center gap-3">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-gray-900">{user.name}</p>
-                <p className="text-[10px] text-gray-400">{user.role === 'admin' ? 'แอดมิน' : 'ผู้ใช้'}</p>
-              </div>
-              <button onClick={onLogout} className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-red-50 hover:text-red-500 transition ml-1" title="ออกจากระบบ">
-                <LogOut size={16} />
-              </button>
-            </div>
-          ) : (
-            <Link to="/login" className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-full text-xs font-bold shadow-md shadow-brand-500/20 transition">
-              เข้าสู่ระบบ
-            </Link>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function UserLayout({ children, user, onLogout }) {
-  const location = useLocation();
-  const isPublicPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/about' || (!user && location.pathname === '/');
-
-  if (isPublicPage) {
-    return <main>{children}</main>;
-  }
+  const navigate = useNavigate();
 
   return (
-    <div className="pb-24">
-      <Header user={user} onLogout={onLogout} />
-      <main className="w-full min-h-screen">
+    <div className="pb-20">
+      <div className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 px-4 py-3 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-2">
+          <img src="/KKU_SportPass.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-sm" />
+          <span className="font-bold text-gray-800 text-lg tracking-tight">Sport<span className="text-brand-600">Pass</span></span>
+        </div>
+        
+        {user ? (
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-xs font-semibold text-gray-800">{user.name}</div>
+              <div className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-0.5">{user.role}</div>
+            </div>
+            <button 
+              onClick={onLogout}
+              className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        ) : (
+          <Link to="/login" className="text-sm font-semibold text-brand-600 bg-brand-50 px-4 py-1.5 rounded-full hover:bg-brand-100 transition">
+            เข้าสู่ระบบ
+          </Link>
+        )}
+      </div>
+      
+      <main>
         {children}
       </main>
+
       <Navigation user={user} />
     </div>
   );
@@ -111,10 +96,6 @@ function UserLayout({ children, user, onLogout }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
 
   const checkAuth = async () => {
     try {
@@ -125,7 +106,7 @@ export default function App() {
         setUser(null);
       }
     } catch (err) {
-      console.error(err);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -136,13 +117,19 @@ export default function App() {
       await axios.post('/api/auth/logout');
       setUser(null);
       window.location.href = '/login';
-    } catch (e) {}
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -150,7 +137,6 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* Standalone full-page QR poster for printing */}
         <Route path="/admin/qr-print" element={<QRPosterPrint />} />
 
         <Route path="/admin" element={user && user.role === 'admin' ? <AdminLayout user={user} onLogout={handleLogout} /> : <Navigate to="/" />}>
@@ -171,6 +157,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={user ? (user.role === 'admin' ? <Navigate to="/admin" /> : <Dashboard user={user} />) : <LandingPage />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/manual" element={<Manual />} />
                 <Route path="/login" element={<Login onLoginSuccess={checkAuth} />} />
                 <Route path="/register" element={<Register onLoginSuccess={checkAuth} />} />
                 <Route path="/court/:id" element={<CourtBooking user={user} />} />
