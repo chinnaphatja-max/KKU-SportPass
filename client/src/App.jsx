@@ -150,19 +150,25 @@ export default function App() {
           <Route path="settings" element={<AdminSettings />} />
         </Route>
 
+        <Route path="/" element={
+          user 
+            ? (user.role === 'admin' ? <Navigate to="/admin" /> : <UserLayout user={user} onLogout={handleLogout}><Dashboard user={user} /></UserLayout>)
+            : <LandingPage />
+        } />
+
+        <Route path="/login" element={<Login onLoginSuccess={checkAuth} />} />
+        <Route path="/register" element={<Register onLoginSuccess={checkAuth} />} />
+
         <Route
           path="/*"
           element={
             <UserLayout user={user} onLogout={handleLogout}>
               <Routes>
-                <Route path="/" element={user ? (user.role === 'admin' ? <Navigate to="/admin" /> : <Dashboard user={user} />) : <LandingPage />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/manual" element={<Manual />} />
-                <Route path="/login" element={<Login onLoginSuccess={checkAuth} />} />
-                <Route path="/register" element={<Register onLoginSuccess={checkAuth} />} />
-                <Route path="/court/:id" element={<CourtBooking user={user} />} />
-                <Route path="/scan" element={<ScanCheckIn user={user} />} />
-                <Route path="/bookings" element={<MyBookings user={user} />} />
+                <Route path="about" element={<About />} />
+                <Route path="manual" element={<Manual />} />
+                <Route path="court/:id" element={<CourtBooking user={user} />} />
+                <Route path="scan" element={<ScanCheckIn user={user} />} />
+                <Route path="bookings" element={<MyBookings user={user} />} />
               </Routes>
             </UserLayout>
           }
