@@ -84,7 +84,7 @@ export default function Manual() {
             <h2 className="text-xl font-bold text-gray-800">เลือกวันและเวลา</h2>
           </div>
           <p className="text-gray-500 text-sm mb-4 leading-relaxed">
-            เลื่อนดูวันที่ต้องการ และเลือกช่วงเวลาที่ว่าง (สีขาวหรือสีเขียว) หากช่วงเวลาไหนเป็นสีเทาหรือมีคนจองแล้วจะไม่สามารถเลือกได้
+            เลื่อนดูวันที่ต้องการ และเลือกช่วงเวลาที่ว่าง (สีขาวหรือสีเขียว) หากช่วงเวลาไหนเป็นสีเทาหรือมีคนจองแล้วจะไม่สามารถเลือกได้ เมื่อเลือกเสร็จให้กดยืนยันการจอง
           </p>
           {/* CSS Illustration */}
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
@@ -102,56 +102,33 @@ export default function Manual() {
                 <span className="text-[10px]">เต็มแล้ว</span>
               </div>
             </div>
+            <div className="mt-3 bg-brand-600 text-white text-center py-2 rounded-xl font-bold text-sm shadow-md shadow-brand-500/30">
+              ยืนยันการจอง
+            </div>
           </div>
         </motion.div>
 
         {/* Step 4 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-green-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30">
-              <span className="font-bold text-lg">4</span>
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">รับ QR Code</h2>
-          </div>
-          <p className="text-gray-500 text-sm mb-4 leading-relaxed">
-            เมื่อยืนยันการจองสำเร็จ ระบบจะสร้าง Ticket พร้อม <span className="font-bold text-gray-700">QR Code</span> ให้คุณทันที สามารถดูได้ที่เมนู "การจอง" (My Bookings)
-          </p>
-          {/* CSS Illustration */}
-          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 shadow-lg text-white relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/10 rounded-full blur-xl"></div>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">Ticket</div>
-                <div className="font-bold text-sm">สนามแบดมินตัน 1</div>
-              </div>
-              <Ticket size={20} className="text-brand-400" />
-            </div>
-            <div className="bg-white rounded-xl p-3 flex justify-center items-center">
-              <QrCode size={60} className="text-gray-900" />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Step 5 */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-rose-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-rose-500/30">
-              <span className="font-bold text-lg">5</span>
+              <span className="font-bold text-lg">4</span>
             </div>
-            <h2 className="text-xl font-bold text-gray-800">สแกนเข้าสนาม</h2>
+            <h2 className="text-xl font-bold text-gray-800">สแกนเช็คอินเข้าสนาม</h2>
           </div>
           <p className="text-gray-500 text-sm mb-4 leading-relaxed">
-            เมื่อถึงเวลาที่จองไว้ ให้นำ QR Code ไปแสดงให้เจ้าหน้าที่สแกน หรือใช้มือถือสแกนคิวอาร์โค้ดที่ตั้งอยู่หน้าสนามเพื่อเช็คอินเข้าใช้งาน
+            เมื่อถึงเวลาที่จองไว้ ให้ไปที่เมนู <span className="font-bold text-rose-500">"สแกน"</span> ในแอปพลิเคชัน แล้วนำมือถือไปสแกน <span className="font-bold text-gray-700">QR Code</span> ที่แปะอยู่หน้าสนามกีฬาเพื่อเช็คอินเข้าใช้งานได้เลย!
           </p>
           {/* CSS Illustration */}
           <div className="bg-rose-50 rounded-2xl p-4 border border-rose-100 flex items-center justify-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-gray-800">
-              <QrCode size={24} />
+            <div className="w-12 h-12 bg-rose-500 rounded-xl shadow-md shadow-rose-500/30 flex items-center justify-center text-white relative z-10">
+              <div className="absolute inset-0 bg-rose-400 rounded-xl animate-ping opacity-75"></div>
+              <ScanLine size={24} />
             </div>
             <ArrowRight size={20} className="text-rose-300" />
-            <div className="w-12 h-12 bg-rose-500 rounded-xl shadow-md shadow-rose-500/30 flex items-center justify-center text-white relative">
-              <div className="absolute inset-0 bg-white/20 rounded-xl animate-ping opacity-75"></div>
-              <ScanLine size={24} />
+            <div className="w-16 h-16 bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center text-gray-800 p-1">
+              <QrCode size={36} />
+              <span className="text-[8px] font-bold mt-1 text-gray-400">ป้ายหน้าสนาม</span>
             </div>
           </div>
         </motion.div>
