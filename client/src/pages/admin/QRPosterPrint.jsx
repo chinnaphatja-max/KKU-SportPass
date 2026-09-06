@@ -13,24 +13,26 @@ export default function QRPosterPrint() {
   const posterRef = useRef(null);
 
   useEffect(() => {
-    if (courtId) fetchData();
-  }, [courtId]);
+    const fetchData = async () => {
+      try {
+        const [courtsRes, tokenRes] = await Promise.all([
+          axios.get('/api/admin/courts'),
+          axios.get(`/api/qrToken?court_id=${courtId}`)
+        ]);
+        const found = (courtsRes.data || []).find(c => c.id === courtId);
+        setCourt(found || { id: courtId, name: courtId });
+        setQrPayload(tokenRes.data.qr_payload || '');
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchData = async () => {
-    try {
-      const [courtsRes, tokenRes] = await Promise.all([
-        axios.get('/api/admin/courts'),
-        axios.get(`/api/qrToken?court_id=${courtId}`)
-      ]);
-      const found = (courtsRes.data || []).find(c => c.id === courtId);
-      setCourt(found || { id: courtId, name: courtId });
-      setQrPayload(tokenRes.data.qr_payload || '');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    if (courtId) {
+      fetchData();
     }
-  };
+  }, [courtId]);
 
   const handlePrint = () => window.print();
 

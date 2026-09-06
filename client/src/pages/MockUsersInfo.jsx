@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Users, KeyRound, ShieldCheck, Copy, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Users, KeyRound, ShieldCheck, Copy } from 'lucide-react';
 
 const mockUsers = [
   { role: 'Admin (แอดมิน)', email: 'admin@mock.com', password: 'password123', desc: 'สามารถเข้าถึงหน้า Admin Dashboard เพื่อจัดการสนามและดูข้อมูลทั้งหมด' },
@@ -11,7 +10,6 @@ const mockUsers = [
 ];
 
 export default function MockUsersInfo() {
-  const navigate = useNavigate();
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);

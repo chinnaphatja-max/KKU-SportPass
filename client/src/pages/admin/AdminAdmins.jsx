@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Plus, Trash2, Mail, User, Phone, Lock } from 'lucide-react';
+import { Shield, Plus, Trash2, User } from 'lucide-react';
 import axios from 'axios';
 
-export default function AdminAdmins({ user }) {
+export default function AdminAdmins() {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);

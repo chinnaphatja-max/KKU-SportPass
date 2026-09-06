@@ -1,4 +1,13 @@
+// [DEPRECATED / LEGACY TARGET]
+// KKU SportPass production target is Vercel + PostgreSQL (Supabase).
+// This Firebase Function with SQLite setup was for local/isolated prototype testing and is NOT permitted in production.
 require('dotenv').config();
+
+// Strict guard: Refuse to run Firebase Functions in production
+if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: Firebase Functions is not permitted for KKU SportPass production. Deploy to Vercel + PostgreSQL instead. See DEPLOYMENT.md.');
+}
+
 const { onRequest } = require('firebase-functions/v2/https');
 const express = require('express');
 const session = require('express-session');
@@ -20,14 +29,23 @@ if (!fs.existsSync(dbPath)) {
 const app = express();
 
 // Middleware
-app.use(cors({ origin: true }));
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : (process.env.NODE_ENV === 'production' ? false : true);
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
     secret: process.env.SESSION_SECRET || 'kku-sportpass-secret-key-node',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    }
 }));
 app.use(passport.initialize());
 app.use(passport.session());

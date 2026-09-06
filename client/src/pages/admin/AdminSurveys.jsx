@@ -17,6 +17,7 @@ export default function AdminSurveys() {
       const res = await axios.get('/api/admin/surveys/stats');
       setStats(res.data);
     } catch (err) {
+      console.error('Failed to fetch survey stats:', err);
       setError('ไม่สามารถดึงข้อมูลสรุปผลได้');
     } finally {
       setLoading(false);

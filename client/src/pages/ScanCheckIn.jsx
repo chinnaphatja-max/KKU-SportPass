@@ -3,10 +3,13 @@ import { motion } from 'framer-motion';
 import { QrCode, MapPin, CheckCircle2, AlertCircle, RefreshCw, Camera, X, WifiOff } from 'lucide-react';
 import axios from 'axios';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ScanCheckIn() {
+  const { t } = useLanguage();
   // ---- State ----
   const [coords, setCoords] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -65,7 +68,7 @@ export default function ScanCheckIn() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       stream.getTracks().forEach(track => track.stop());
-    } catch (_) {
+    } catch {
       setCameraError('ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การใช้งานกล้อง');
       return;
     }
@@ -86,7 +89,7 @@ export default function ScanCheckIn() {
             qrbox: { width: 250, height: 250 }
           },
           onScanSuccess,
-          (errorMessage) => {
+          () => {
             // ignore (no QR in frame)
           }
         );
@@ -133,7 +136,7 @@ export default function ScanCheckIn() {
       try {
         await scannerRef.current.stop();
         // ไม่ทำ destroy เพื่อให้สามารถเริ่มใหม่ได้
-      } catch (_) {
+      } catch {
         // ignore
       }
     }
@@ -147,7 +150,7 @@ export default function ScanCheckIn() {
         try {
           scannerRef.current.stop();
           scannerRef.current.clear();
-        } catch (_) {
+        } catch {
           // ignore
         }
         scannerRef.current = null;
@@ -170,15 +173,15 @@ export default function ScanCheckIn() {
   return (
     <div className="max-w-lg mx-auto px-4 py-6 w-full">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <h2 className="text-2xl font-extrabold text-gray-900">เช็คอินเข้าใช้งาน</h2>
-        <p className="text-xs text-gray-500 mt-1">สแกน QR Code หน้าสนาม พร้อมยืนยันตำแหน่งพิกัด GPS</p>
+        <h2 className="text-2xl font-extrabold text-gray-900">{t('scan_title', 'เช็คอินเข้าใช้งาน')}</h2>
+        <p className="text-xs text-gray-500 mt-1">{t('scan_subtitle', 'สแกน QR Code หน้าสนาม พร้อมยืนยันตำแหน่งพิกัด GPS')}</p>
       </motion.div>
 
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-6">
         {result ? (
           <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-2xl text-center">
             <CheckCircle2 size={48} className="mx-auto text-emerald-600 mb-3" />
-            <h4 className="font-extrabold text-lg">เช็คอินสำเร็จ!</h4>
+            <h4 className="font-extrabold text-lg">{t('scan_success_title', 'เช็คอินสำเร็จ!')}</h4>
             {result.distance_m !== undefined && (
               <p className="text-sm font-semibold mt-1">ระยะห่างจากสนาม: {result.distance_m} เมตร</p>
             )}
@@ -189,7 +192,7 @@ export default function ScanCheckIn() {
               onClick={handleReset}
               className="mt-6 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md"
             >
-              สแกนอีกครั้ง
+              {t('btn_search', 'สแกนอีกครั้ง')}
             </button>
           </div>
         ) : (
@@ -198,7 +201,7 @@ export default function ScanCheckIn() {
               <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center mx-auto mb-3 shadow-sm border border-brand-100">
                 <QrCode size={28} />
               </div>
-              <h3 className="font-extrabold text-gray-900 text-sm">ระบบสแกน QR + GPS Verification</h3>
+              <h3 className="font-extrabold text-gray-900 text-sm">QR Code + GPS Verification</h3>
             </div>
 
             {/* Error messages */}
@@ -234,14 +237,14 @@ export default function ScanCheckIn() {
                     <div className="w-16 h-16 bg-white shadow-sm rounded-full flex items-center justify-center text-gray-400 mb-4">
                       <Camera size={28} />
                     </div>
-                    <h4 className="font-bold text-gray-800 text-sm mb-1">กล้องปิดอยู่</h4>
-                    <p className="text-xs text-gray-500 mb-5">กรุณาเปิดกล้องเพื่อสแกน QR Code</p>
+                    <h4 className="font-bold text-gray-800 text-sm mb-1">{t('scan_btn_start', 'เปิดกล้องสแกน')}</h4>
+                    <p className="text-xs text-gray-500 mb-5">{t('scan_subtitle', 'กรุณาเปิดกล้องเพื่อสแกน QR Code')}</p>
                     <button
                       onClick={startScanner}
                       className="flex items-center gap-2 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-200 transition-all hover:-translate-y-0.5 active:translate-y-0"
                     >
                       <Camera size={18} />
-                      เปิดกล้องสแกน
+                      {t('scan_btn_start', 'เปิดกล้องสแกน')}
                     </button>
                   </div>
                 )}
@@ -250,7 +253,7 @@ export default function ScanCheckIn() {
                   <button
                     onClick={stopScanner}
                     className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur text-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-colors z-50"
-                    title="ปิดกล้อง"
+                    title={t('scan_btn_stop', 'ปิดกล้อง')}
                   >
                     <X size={20} />
                   </button>
@@ -259,7 +262,7 @@ export default function ScanCheckIn() {
                 {loading && (
                   <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-50">
                     <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mb-3 shadow-md" />
-                    <p className="text-sm font-bold text-brand-800 animate-pulse">กำลังตรวจสอบข้อมูล...</p>
+                    <p className="text-sm font-bold text-brand-800 animate-pulse">{t('bookings_action_loading', 'กำลังตรวจสอบข้อมูล...')}</p>
                   </div>
                 )}
               </div>
@@ -270,13 +273,13 @@ export default function ScanCheckIn() {
               <div className="flex items-center gap-2.5">
                 <MapPin size={18} className="text-brand-600" />
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">ตำแหน่งปัจจุบัน</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">{t('scan_gps_status', 'สถานะ GPS')}</p>
                   <span className="text-xs font-bold text-gray-700">
                     {coords
-                      ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`
+                      ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)} (${t('scan_gps_ready', 'พร้อมระบุตำแหน่ง')})`
                       : permissionDenied
                         ? '⚠️ ไม่อนุญาต'
-                        : 'กำลังดึงพิกัด GPS...'}
+                        : t('scan_gps_waiting', 'กำลังดึงพิกัด GPS...')}
                   </span>
                 </div>
               </div>

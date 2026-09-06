@@ -247,12 +247,11 @@ export default function Survey() {
             : formData.preferredSports,
       };
 
-      // Simulate API call (replace with actual axios call)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      // await axios.post('/api/surveys', payload);
+      await axios.post('/api/surveys', payload);
 
       setSuccess(true);
     } catch (err) {
+      console.error('Survey submission error:', err);
       setError('เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง');
       setSubmitted(false);
     } finally {

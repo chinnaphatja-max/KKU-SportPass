@@ -1,6 +1,14 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 
+function resolveRole(email) {
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean);
+    return adminEmails.includes(email.toLowerCase()) ? 'admin' : 'user';
+}
+
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -8,7 +16,7 @@ exports.login = async (req, res) => {
             return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
         }
 
-        const [users] = await pool.query("SELECT * FROM users WHERE email = ?", [email.trim()]);
+        const [users] = await pool.query("SELECT * FROM users WHERE email = ?", [email.trim().toLowerCase()]);
         const user = users[0];
 
         if (!user) {
@@ -45,27 +53,30 @@ exports.register = async (req, res) => {
             return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ" });
         }
 
-        if (!/@(kkumail\.com|kku\.ac\.th)$/i.test(email)) {
+        const cleanEmail = email.trim().toLowerCase();
+
+        if (!/@(kkumail\.com|kku\.ac\.th)$/i.test(cleanEmail)) {
             return res.status(400).json({ error: "กรุณาใช้อีเมล @kkumail.com หรือ @kku.ac.th เท่านั้น" });
         }
 
-        const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [email.trim()]);
+        const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [cleanEmail]);
         if (existing.length > 0) {
             return res.status(409).json({ error: "อีเมลนี้ถูกใช้งานแล้ว" });
         }
 
         const hashed = await bcrypt.hash(password, 10);
-        const role = email.toLowerCase().startsWith('admin') ? 'admin' : 'user';
+        // Strictly prevent automatic admin escalation via email prefix
+        const role = resolveRole(cleanEmail);
         
         const [result] = await pool.query(
             "INSERT INTO users (name, email, password, phone, role) VALUES (?, ?, ?, ?, ?)",
-            [name.trim(), email.trim(), hashed, phone ? phone.trim() : '', role]
+            [name.trim(), cleanEmail, hashed, phone ? phone.trim() : '', role]
         );
 
         req.session.user = {
             id: result.insertId,
             name: name.trim(),
-            email: email.trim(),
+            email: cleanEmail,
             role: role
         };
 
@@ -77,11 +88,10 @@ exports.register = async (req, res) => {
     }
 };
 
-
-
 exports.status = (req, res) => {
-    if (req.session && req.session.user) {
-        res.json({ logged_in: true, user: req.session.user });
+    const currentUser = req.session?.user || req.user;
+    if (currentUser) {
+        res.json({ logged_in: true, user: currentUser });
     } else {
         res.json({ logged_in: false });
     }
@@ -89,7 +99,7 @@ exports.status = (req, res) => {
 
 exports.logout = (req, res) => {
     if (req.session) {
-        req.session.destroy((err) => {
+        req.session.destroy((_err) => {
             res.clearCookie('connect.sid');
             return res.json({ success: true });
         });
@@ -97,3 +107,6 @@ exports.logout = (req, res) => {
         res.json({ success: true });
     }
 };
+
+exports.resolveRole = resolveRole;
+

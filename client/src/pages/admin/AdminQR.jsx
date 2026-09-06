@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Download, Printer, QrCode, ExternalLink, Eye } from 'lucide-react';
+import { Printer, QrCode, ExternalLink, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
@@ -8,20 +8,8 @@ export default function AdminQR() {
   const [courts, setCourts] = useState([]);
   const [selectedCourtId, setSelectedCourtId] = useState('');
   const [qrPayload, setQrPayload] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCourts();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCourtId) {
-      fetchToken();
-    }
-  }, [selectedCourtId]);
-
-  const fetchCourts = async () => {
-    setLoading(true);
+  const fetchCourts = useCallback(async () => {
     try {
       const res = await axios.get('/api/admin/courts');
       setCourts(res.data || []);
@@ -30,19 +18,26 @@ export default function AdminQR() {
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchToken = async () => {
+  const fetchToken = useCallback(async () => {
+    if (!selectedCourtId) return;
     try {
       const res = await axios.get(`/api/qrToken?court_id=${selectedCourtId}`);
       setQrPayload(res.data.qr_payload || '');
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [selectedCourtId]);
+
+  useEffect(() => {
+    fetchCourts();
+  }, [fetchCourts]);
+
+  useEffect(() => {
+    fetchToken();
+  }, [fetchToken]);
 
   const selectedCourt = courts.find((c) => c.id === selectedCourtId) || courts[0];
 

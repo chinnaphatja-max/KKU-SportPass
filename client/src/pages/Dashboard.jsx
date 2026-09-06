@@ -1,48 +1,65 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { CalendarPlus, CheckCircle2, QrCode, PersonStanding, MapPin, AlertCircle, Check, X, Clock, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Swords, Zap, Star } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, QrCode, MapPin, AlertCircle, X, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Zap, Star, Search, Clock } from 'lucide-react';
 import axios from 'axios';
 import { formatThaiDate } from '../utils/date';
+import { useLanguage } from '../context/LanguageContext';
 
 const SPORT_META = {
-  swimming: { label: 'ว่ายน้ำ', icon: Waves, color: 'text-blue-500', bg: 'bg-blue-100', image: 'https://images.unsplash.com/photo-1519315901367-f34f8a554a32?w=800&q=80' },
-  tennis: { label: 'เทนนิส', icon: Target, color: 'text-lime-500', bg: 'bg-lime-100', image: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=800&q=80' },
-  badminton: { label: 'แบดมินตัน', icon: Feather, color: 'text-indigo-500', bg: 'bg-indigo-100', image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&q=80' },
-  football: { label: 'ฟุตบอล', icon: Goal, color: 'text-green-500', bg: 'bg-green-100', image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=80' },
-  basketball: { label: 'บาสเก็ตบอล', icon: Activity, color: 'text-orange-500', bg: 'bg-orange-100', image: 'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=800&q=80' },
-  futsal: { label: 'ฟุตซอล', icon: Goal, color: 'text-emerald-500', bg: 'bg-emerald-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  fitness: { label: 'ฟิตเนส', icon: Dumbbell, color: 'text-gray-700', bg: 'bg-gray-200', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  petanque: { label: 'เปตอง', icon: CircleDot, color: 'text-stone-500', bg: 'bg-stone-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  sepak_takraw: { label: 'เซปักตะกร้อ', icon: CircleDot, color: 'text-amber-600', bg: 'bg-amber-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  volleyball: { label: 'วอลเลย์บอล', icon: Activity, color: 'text-yellow-500', bg: 'bg-yellow-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  table_tennis: { label: 'เทเบิลเทนนิส', icon: Target, color: 'text-red-500', bg: 'bg-red-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  martial_arts: { label: 'ศิลปะป้องกันตัว', icon: Shield, color: 'text-rose-500', bg: 'bg-rose-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  shooting: { label: 'ยิงปืน', icon: Crosshair, color: 'text-zinc-600', bg: 'bg-zinc-200', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  archery: { label: 'ยิงธนู', icon: Crosshair, color: 'text-teal-600', bg: 'bg-teal-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  softball: { label: 'ซอฟท์บอล', icon: CircleDot, color: 'text-orange-400', bg: 'bg-orange-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  hockey: { label: 'ฮอกกี้', icon: Zap, color: 'text-cyan-500', bg: 'bg-cyan-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  rugby: { label: 'รักบี้', icon: Goal, color: 'text-amber-800', bg: 'bg-amber-200', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
-  all: { label: 'ทั้งหมด', icon: LayoutGrid, color: 'text-brand-500', bg: 'bg-brand-100', image: 'https://images.unsplash.com/photo-1587280501635-a19760152b40?w=800&q=80' }
+  swimming: { labelTh: 'ว่ายน้ำ', labelEn: 'Swimming', icon: Waves, color: 'text-blue-500', bg: 'bg-blue-100', image: 'https://images.unsplash.com/photo-1519315901367-f34f8a554a32?w=800&q=80' },
+  tennis: { labelTh: 'เทนนิส', labelEn: 'Tennis', icon: Target, color: 'text-lime-500', bg: 'bg-lime-100', image: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=800&q=80' },
+  badminton: { labelTh: 'แบดมินตัน', labelEn: 'Badminton', icon: Feather, color: 'text-indigo-500', bg: 'bg-indigo-100', image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=800&q=80' },
+  football: { labelTh: 'ฟุตบอล', labelEn: 'Football', icon: Goal, color: 'text-green-500', bg: 'bg-green-100', image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=80' },
+  basketball: { labelTh: 'บาสเก็ตบอล', labelEn: 'Basketball', icon: Activity, color: 'text-orange-500', bg: 'bg-orange-100', image: 'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=800&q=80' },
+  futsal: { labelTh: 'ฟุตซอล', labelEn: 'Futsal', icon: Goal, color: 'text-emerald-500', bg: 'bg-emerald-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  fitness: { labelTh: 'ฟิตเนส', labelEn: 'Fitness', icon: Dumbbell, color: 'text-gray-700', bg: 'bg-gray-200', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  petanque: { labelTh: 'เปตอง', labelEn: 'Petanque', icon: CircleDot, color: 'text-stone-500', bg: 'bg-stone-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  sepak_takraw: { labelTh: 'เซปักตะกร้อ', labelEn: 'Sepak Takraw', icon: CircleDot, color: 'text-amber-600', bg: 'bg-amber-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  volleyball: { labelTh: 'วอลเลย์บอล', labelEn: 'Volleyball', icon: Activity, color: 'text-yellow-500', bg: 'bg-yellow-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  table_tennis: { labelTh: 'เทเบิลเทนนิส', labelEn: 'Table Tennis', icon: Target, color: 'text-red-500', bg: 'bg-red-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  martial_arts: { labelTh: 'ศิลปะป้องกันตัว', labelEn: 'Martial Arts', icon: Shield, color: 'text-rose-500', bg: 'bg-rose-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  shooting: { labelTh: 'ยิงปืน', labelEn: 'Shooting', icon: Crosshair, color: 'text-zinc-600', bg: 'bg-zinc-200', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  archery: { labelTh: 'ยิงธนู', labelEn: 'Archery', icon: Crosshair, color: 'text-teal-600', bg: 'bg-teal-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  softball: { labelTh: 'ซอฟท์บอล', labelEn: 'Softball', icon: CircleDot, color: 'text-orange-400', bg: 'bg-orange-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  hockey: { labelTh: 'ฮอกกี้', labelEn: 'Hockey', icon: Zap, color: 'text-cyan-500', bg: 'bg-cyan-100', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  rugby: { labelTh: 'รักบี้', labelEn: 'Rugby', icon: Goal, color: 'text-amber-800', bg: 'bg-amber-200', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&q=80' },
+  all: { labelTh: 'ทั้งหมด', labelEn: 'All Sports', icon: LayoutGrid, color: 'text-brand-500', bg: 'bg-brand-100', image: 'https://images.unsplash.com/photo-1587280501635-a19760152b40?w=800&q=80' }
 };
 
-function getSportMeta(type) {
-  return SPORT_META[type] || { label: type, icon: Trophy, color: 'text-gray-500', bg: 'bg-gray-100', image: 'https://images.unsplash.com/photo-1587280501635-a19760152b40?w=800&q=80' };
+function getSportMeta(type, language = 'th') {
+  const meta = SPORT_META[type] || { labelTh: type, labelEn: type, icon: Trophy, color: 'text-gray-500', bg: 'bg-gray-100', image: 'https://images.unsplash.com/photo-1587280501635-a19760152b40?w=800&q=80' };
+  return {
+    ...meta,
+    label: language === 'en' ? meta.labelEn : meta.labelTh
+  };
 }
 
-export default function Dashboard() {
+export default function Dashboard({ user }) {
+  const { t, language } = useLanguage();
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedSport, setSelectedSport] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedZone, setSelectedZone] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeReminder, setActiveReminder] = useState(null);
 
   useEffect(() => {
-    fetchCourts();
-  }, [date]);
+    if (!user) return;
+    axios.get('/api/myBookings')
+      .then(res => {
+        const today = new Date().toISOString().split('T')[0];
+        const active = (res.data.bookings || []).find(b => 
+          b.booking_date === today && (b.status === 'PENDING' || b.status === 'PRE_CONFIRMED')
+        );
+        setActiveReminder(active || null);
+      })
+      .catch(() => {});
+  }, [user]);
 
-  const fetchCourts = async () => {
+  const fetchCourts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -54,11 +71,21 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [date]);
+
+  useEffect(() => {
+    fetchCourts();
+  }, [fetchCourts]);
 
   const courts = data?.courts || [];
   const sportsList = ['all', ...new Set(courts.map(c => c.type))];
-  const visibleCourts = selectedSport === 'all' ? courts : courts.filter(c => c.type === selectedSport);
+  const visibleCourts = courts.filter(c => {
+    const matchesSport = selectedSport === 'all' || c.type === selectedSport;
+    const matchesSearch = !searchQuery.trim() || 
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (c.type && c.type.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesSport && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
@@ -91,11 +118,11 @@ export default function Dashboard() {
                   className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold mb-4 border border-white/10"
                 >
                   <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                  ระบบเปิดให้บริการแล้ว
+                  {t('dash_system_active', 'ระบบเปิดให้บริการแล้ว')}
                 </motion.div>
-                <h1 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">จองสนามกีฬา มข.</h1>
+                <h1 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">{t('dash_hero_title', 'จองสนามกีฬา มข.')}</h1>
                 <p className="text-brand-50 md:text-lg opacity-90 max-w-md leading-relaxed font-light">
-                  แพลตฟอร์มการจองออนไลน์ที่ทันสมัยที่สุด สะดวก รวดเร็ว พร้อมระบบยืนยันสิทธิ์ด้วย QR Code
+                  {t('dash_hero_sub', 'แพลตฟอร์มการจองออนไลน์ที่ทันสมัยที่สุด สะดวก รวดเร็ว พร้อมระบบยืนยันสิทธิ์ด้วย QR Code')}
                 </p>
               </div>
             </div>
@@ -104,6 +131,56 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6">
+        {/* Active Booking Reminder Card */}
+        {activeReminder && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 md:p-5 rounded-3xl bg-white border-2 border-orange-200 shadow-lg shadow-orange-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#fe6e00] to-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                <Clock size={24} className="animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#fe6e00] bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
+                    🔔 {t('dash_reminder_today', 'รายการจองวันนี้')}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-gray-700">
+                    {activeReminder.booking_code || `#${activeReminder.id}`}
+                  </span>
+                </div>
+                <p className="font-extrabold text-gray-900 text-sm md:text-base mt-1">
+                  {activeReminder.court_name} ({activeReminder.start_time.substring(0, 5)} - {activeReminder.end_time.substring(0, 5)} น.)
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {activeReminder.status === 'PENDING'
+                    ? 'รอยืนยันสิทธิ์ล่วงหน้า (Pre-Confirm) ก่อนเริ่มรอบการใช้งาน'
+                    : 'ยืนยันสิทธิ์เรียบร้อยแล้ว เตรียมพร้อมสแกน QR เพื่อเช็คอินที่สนาม'}
+                </p>
+              </div>
+            </div>
+            <div className="self-end sm:self-center shrink-0">
+              {activeReminder.status === 'PENDING' ? (
+                <Link
+                  to="/bookings"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#fe6e00] hover:bg-[#e06100] text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95"
+                >
+                  <CheckCircle2 size={15} /> {t('btn_pre_confirm', 'กดยืนยันสิทธิ์')}
+                </Link>
+              ) : (
+                <Link
+                  to="/scan"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95"
+                >
+                  <QrCode size={15} /> {t('btn_checkin_qr', 'สแกน QR เช็คอิน')}
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {/* Modern Guide Icons */}
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
@@ -142,12 +219,12 @@ export default function Dashboard() {
                   <Star size={28} className="text-white" fill="currentColor" />
                 </div>
                 <div>
-                  <h3 className="text-xl md:text-2xl font-bold mb-1">📝 ทำแบบประเมินความพึงพอใจ</h3>
-                  <p className="text-orange-50 font-medium text-sm md:text-base">ช่วยเราพัฒนา KKU SportPass ให้ดียิ่งขึ้น เพื่อประสบการณ์ที่ยอดเยี่ยมของทุกคน!</p>
+                  <h3 className="text-xl md:text-2xl font-bold mb-1">📝 {t('dash_survey_banner_title', 'ทำแบบประเมินความพึงพอใจ')}</h3>
+                  <p className="text-orange-50 font-medium text-sm md:text-base">{t('dash_survey_banner_desc', 'ช่วยเราพัฒนา KKU SportPass ให้ดียิ่งขึ้น เพื่อประสบการณ์ที่ยอดเยี่ยมของทุกคน!')}</p>
                 </div>
               </div>
               <div className="shrink-0 bg-white text-orange-600 font-bold px-6 py-3 rounded-xl shadow-sm group-hover:bg-orange-50 transition-colors w-full md:w-auto text-center">
-                เริ่มทำแบบประเมิน
+                {t('dash_survey_banner_btn', 'เริ่มทำแบบประเมิน')}
               </div>
             </div>
           </Link>
@@ -220,34 +297,58 @@ export default function Dashboard() {
         {/* Filter Section (Sticky on Mobile) */}
         <div className="sticky top-0 z-30 bg-gray-50/80 backdrop-blur-xl pb-4 pt-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:bg-transparent sm:backdrop-blur-none sm:pt-0 mt-8">
           <section className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6 flex flex-col md:flex-row gap-4 md:items-center justify-between">
-            <div className="flex-shrink-0">
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">เลือกวันที่ต้องการ</label>
-              <div className="relative group">
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('dashboard-date-picker')?.showPicker()}
-                  className="flex items-center justify-between w-full md:w-auto bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 md:py-3 outline-none group-focus-within:ring-2 group-focus-within:ring-brand-500/50 group-focus-within:border-brand-500 transition-all font-semibold text-gray-700 text-sm md:text-base cursor-pointer relative z-0 hover:bg-gray-100"
-                >
-                  <div className="flex items-center gap-3">
-                    <CalendarPlus className="w-5 h-5 text-gray-400 group-hover:text-brand-500 transition-colors" />
-                    {formatThaiDate(date, true)}
-                  </div>
-                </button>
-                <input 
-                  id="dashboard-date-picker"
-                  type="date" 
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="absolute bottom-0 left-0 w-0 h-0 opacity-0 pointer-events-none"
-                />
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="flex-shrink-0">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">เลือกวันที่ต้องการ</label>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('dashboard-date-picker')?.showPicker()}
+                    className="flex items-center justify-between w-full md:w-auto bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 md:py-3 outline-none group-focus-within:ring-2 group-focus-within:ring-brand-500/50 group-focus-within:border-brand-500 transition-all font-semibold text-gray-700 text-sm md:text-base cursor-pointer relative z-0 hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CalendarPlus className="w-5 h-5 text-gray-400 group-hover:text-brand-500 transition-colors" />
+                      {formatThaiDate(date, true)}
+                    </div>
+                  </button>
+                  <input 
+                    id="dashboard-date-picker"
+                    type="date" 
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="absolute bottom-0 left-0 w-0 h-0 opacity-0 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">ค้นหาสนาม</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder={t('dash_search_placeholder', 'พิมพ์ชื่อสนาม เช่น แบดมินตัน, ว่ายน้ำ...')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-8 py-2.5 md:py-3 text-sm font-medium focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 outline-none transition"
+                  />
+                  <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             
             <div className="flex-1 w-full overflow-hidden">
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">ประเภทกีฬา</label>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('label_court_type', 'ประเภทกีฬา')}</label>
               <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide snap-x">
                 {sportsList.map((type) => {
-                  const meta = getSportMeta(type);
+                  const meta = getSportMeta(type, language);
                   const isSelected = selectedSport === type;
                   const Icon = meta.icon;
                   return (
@@ -319,7 +420,8 @@ export default function Dashboard() {
 }
 
 function CourtCard({ court, date, closedReason, index }) {
-  const meta = getSportMeta(court.type);
+  const { t, language } = useLanguage();
+  const meta = getSportMeta(court.type, language);
   const Icon = meta.icon;
   
   return (
@@ -346,7 +448,7 @@ function CourtCard({ court, date, closedReason, index }) {
                   </span>
                 ) : court.price === 'ฟรี' ? (
                   <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">
-                    ฟรี
+                    {t('label_free', 'ฟรี')}
                   </span>
                 ) : null}
             </div>
@@ -356,11 +458,11 @@ function CourtCard({ court, date, closedReason, index }) {
         <div className="px-6 pb-6 pt-0 bg-white flex-1 flex flex-col justify-end">
           {closedReason ? (
             <div className="bg-red-50 text-red-500 p-3 rounded-xl text-center text-xs font-semibold border border-red-100">
-              ปิดให้บริการ: {closedReason}
+              {t('dash_closed', 'ปิดให้บริการ')}: {closedReason}
             </div>
           ) : (
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs font-semibold text-gray-400 group-hover:text-brand-500 transition-colors">คลิกเพื่อดูตารางเวลา</span>
+              <span className="text-xs font-semibold text-gray-400 group-hover:text-brand-500 transition-colors">{t('dash_view_slots', 'คลิกเพื่อดูตารางเวลา')}</span>
               <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
                 <Navigation size={16} className="-rotate-90" />
               </div>

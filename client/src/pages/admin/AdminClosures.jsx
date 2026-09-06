@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { CalendarOff, Plus, Trash2, MapPin } from 'lucide-react';
+import { Plus, Trash2, Clock, Calendar } from 'lucide-react';
 import axios from 'axios';
 import { formatThaiDate } from '../../utils/date';
 
@@ -8,7 +7,13 @@ export default function AdminClosures() {
   const [closures, setClosures] = useState([]);
   const [courts, setCourts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newClosure, setNewClosure] = useState({ court_id: '', close_date: '', reason: '' });
+  const [newClosure, setNewClosure] = useState({
+    court_id: '',
+    close_date: '',
+    start_time: '',
+    end_time: '',
+    reason: ''
+  });
 
   useEffect(() => {
     fetchClosures();
@@ -40,7 +45,7 @@ export default function AdminClosures() {
     e.preventDefault();
     try {
       await axios.post('/api/admin/closures', newClosure);
-      setNewClosure({ court_id: '', close_date: '', reason: '' });
+      setNewClosure({ court_id: '', close_date: '', start_time: '', end_time: '', reason: '' });
       fetchClosures();
     } catch (err) {
       alert(err.response?.data?.error || 'เกิดข้อผิดพลาดในการบันทึกการปิดสนาม');
@@ -48,7 +53,7 @@ export default function AdminClosures() {
   };
 
   const handleDeleteClosure = async (id) => {
-    if (!confirm('ยืนยันการลบรายการปิดสนามนี้?')) return;
+    if (!window.confirm('ยืนยันการลบรายการปิดสนามนี้?')) return;
     try {
       await axios.delete('/api/admin/closures', { data: { id } });
       fetchClosures();
@@ -58,23 +63,27 @@ export default function AdminClosures() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div>
-        <h3 className="font-extrabold text-gray-900 text-lg">ปฏิทินการปิดสนาม (Court Closures)</h3>
-        <p className="text-xs text-gray-500 mt-0.5">กำหนดการปิดให้บริการสนามชั่วคราวกรณีฉุกเฉิน ซ่อมบำรุง หรือจัดกิจกรรม</p>
+        <h3 className="font-extrabold text-gray-900 text-lg flex items-center gap-2">
+          <Calendar className="text-[#fe6e00]" size={20} /> ปฏิทินการปิดสนาม (Court Closures)
+        </h3>
+        <p className="text-xs text-gray-500 mt-0.5">
+          กำหนดการปิดให้บริการสนามชั่วคราว ทั้งแบบตลอดวันและแบบเฉพาะบางช่วงเวลา (Partial-Day Closure)
+        </p>
       </div>
 
       <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm">
         <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
-          <Plus size={16} className="text-brand-600" /> เพิ่มรายการปิดสนาม
+          <Plus size={16} className="text-[#fe6e00]" /> เพิ่มรายการปิดสนาม
         </h4>
-        <form onSubmit={handleAddClosure} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <form onSubmit={handleAddClosure} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">เลือกสนาม (เว้นว่างหากปิดทุกสนาม)</label>
             <select
               value={newClosure.court_id}
               onChange={(e) => setNewClosure({ ...newClosure, court_id: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#fe6e00]/50"
             >
               <option value="">-- ทุกสนาม (All Courts) --</option>
               {courts.map((c) => (
@@ -108,16 +117,40 @@ export default function AdminClosures() {
             <input
               type="text"
               required
-              placeholder="เช่น ปรับปรุงพื้นสนาม"
+              placeholder="เช่น ปรับปรุงพื้นสนาม, จัดกิจกรรมการแข่งขัน"
               value={newClosure.reason}
               onChange={(e) => setNewClosure({ ...newClosure, reason: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#fe6e00]/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              เวลาเริ่มต้น (เว้นว่าง = ปิดทั้งวัน)
+            </label>
+            <input
+              type="time"
+              value={newClosure.start_time}
+              onChange={(e) => setNewClosure({ ...newClosure, start_time: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#fe6e00]/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              เวลาสิ้นสุด (เว้นว่าง = ปิดทั้งวัน)
+            </label>
+            <input
+              type="time"
+              value={newClosure.end_time}
+              onChange={(e) => setNewClosure({ ...newClosure, end_time: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#fe6e00]/50"
             />
           </div>
 
           <div className="flex items-end">
-            <button type="submit" className="w-full py-2.5 bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-brand-700 transition">
-              บันทึกรายการ
+            <button type="submit" className="w-full py-2.5 bg-[#fe6e00] hover:bg-[#e06100] text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95">
+              บันทึกรายการปิดสนาม
             </button>
           </div>
         </form>
@@ -127,24 +160,42 @@ export default function AdminClosures() {
         <h4 className="font-bold text-gray-800 text-sm mb-4">รายการปิดสนามทั้งหมด ({closures.length})</h4>
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="w-7 h-7 border-3 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+            <div className="w-7 h-7 border-3 border-[#fe6e00]/30 border-t-[#fe6e00] rounded-full animate-spin"></div>
           </div>
         ) : closures.length === 0 ? (
           <p className="text-xs text-gray-400 text-center py-8 font-medium">ไม่มีรายการปิดสนาม</p>
         ) : (
           <div className="space-y-2">
-            {closures.map((cl) => (
-              <div key={cl.id} className="p-3.5 bg-gray-50 rounded-2xl flex items-center justify-between border border-gray-100">
-                <div>
-                  <span className="font-bold text-gray-900 text-xs">{cl.court_name || 'ทุกสนาม (All Courts)'}</span>
-                  <span className="ml-2 text-xs text-brand-600 font-semibold">{formatThaiDate(cl.close_date, true)}</span>
-                  <p className="text-xs text-gray-500 mt-0.5">สาเหตุ: {cl.reason}</p>
+            {closures.map((cl) => {
+              const isPartial = Boolean(cl.start_time && cl.end_time);
+              return (
+                <div key={cl.id} className="p-3.5 bg-gray-50 rounded-2xl flex items-center justify-between border border-gray-100 hover:border-gray-200 transition">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-900 text-xs">{cl.court_name || 'ทุกสนาม (All Courts)'}</span>
+                      <span className="text-xs text-[#fe6e00] font-semibold">{formatThaiDate(cl.close_date, true)}</span>
+                      {isPartial ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                          <Clock size={10} /> {cl.start_time.substring(0, 5)} - {cl.end_time.substring(0, 5)} น.
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                          ปิดทั้งวัน (All Day)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">สาเหตุ: {cl.reason}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteClosure(cl.id)}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition"
+                    title="ลบรายการ"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <button onClick={() => handleDeleteClosure(cl.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

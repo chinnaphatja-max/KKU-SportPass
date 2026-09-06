@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { BookOpen, LogIn, CalendarDays, CheckCircle, QrCode, MapPin, Clock, ArrowRight, ShieldCheck, Ticket, ScanLine } from 'lucide-react';
+import { BookOpen, CheckCircle, QrCode, MapPin, ArrowRight, ShieldCheck, ScanLine } from 'lucide-react';
 
 export default function Manual() {
   return (

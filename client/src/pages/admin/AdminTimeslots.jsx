@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Plus, Trash2, MapPin } from 'lucide-react';
 import axios from 'axios';
@@ -9,11 +9,7 @@ export default function AdminTimeslots() {
   const [loading, setLoading] = useState(true);
   const [newSlot, setNewSlot] = useState({ court_id: '', start_time: '16:00', end_time: '17:00' });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [tsRes, courtsRes] = await Promise.all([
@@ -30,7 +26,11 @@ export default function AdminTimeslots() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [newSlot.court_id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAddSlot = async (e) => {
     e.preventDefault();

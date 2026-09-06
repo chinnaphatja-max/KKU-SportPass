@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Settings, Save, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 
 export default function AdminSettings() {
@@ -128,6 +128,13 @@ export default function AdminSettings() {
           </div>
         </form>
       )}
+
+      {/* Hidden Analytics / Marketing Links */}
+      <div className="flex justify-end gap-3 mt-12 opacity-10 hover:opacity-100 transition-opacity duration-500">
+        <Link to="/admin/analytics" className="text-[10px] text-gray-400 hover:text-brand-600 transition">AD_ANLYT</Link>
+        <span className="text-[10px] text-gray-300">|</span>
+        <Link to="/admin/marketing" className="text-[10px] text-gray-400 hover:text-brand-600 transition">AD_MKTG</Link>
+      </div>
     </div>
   );
 }

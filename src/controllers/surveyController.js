@@ -10,7 +10,7 @@ exports.submitSurvey = async (req, res) => {
             rating_prob_time, rating_prob_queue, rating_prob_plan, rating_overall
         } = req.body;
 
-        const userId = req.user ? req.user.id : null;
+        const userId = req.session?.user?.id || req.user?.id || null;
 
         await pool.query(`
             INSERT INTO satisfaction_surveys (
@@ -20,11 +20,11 @@ exports.submitSurvey = async (req, res) => {
                 rating_perf_speed, rating_perf_gps, rating_perf_security,
                 rating_prob_time, rating_prob_queue, rating_prob_plan, rating_overall
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7,
-                $8, $9, $10, $11,
-                $12, $13, $14, $15,
-                $16, $17, $18,
-                $19, $20, $21, $22
+                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?
             )
         `, [
             userId, userRole, usageFrequency, preferredSports, gender, age, faculty,
@@ -44,15 +44,15 @@ exports.submitSurvey = async (req, res) => {
 exports.getSurveyStats = async (req, res) => {
     try {
         // Total respondents
-        const totalRes = await pool.query('SELECT COUNT(*) FROM satisfaction_surveys');
-        const total = parseInt(totalRes.rows[0].count);
+        const [totalRows] = await pool.query('SELECT COUNT(*) as count FROM satisfaction_surveys');
+        const total = totalRows && totalRows.length > 0 ? parseInt(totalRows[0].count, 10) : 0;
 
         if (total === 0) {
             return res.json({ success: true, total: 0, demographics: {}, averages: {} });
         }
 
         // Averages
-        const avgRes = await pool.query(`
+        const [avgRows] = await pool.query(`
             SELECT 
                 AVG(rating_ux_modern) as ux_modern,
                 AVG(rating_ux_clarity) as ux_clarity,
@@ -76,14 +76,15 @@ exports.getSurveyStats = async (req, res) => {
         `);
 
         // Demographics grouping
-        const roleRes = await pool.query('SELECT user_role, COUNT(*) FROM satisfaction_surveys GROUP BY user_role');
-        const freqRes = await pool.query('SELECT usage_frequency, COUNT(*) FROM satisfaction_surveys GROUP BY usage_frequency');
-        const sportRes = await pool.query('SELECT preferred_sports, COUNT(*) FROM satisfaction_surveys GROUP BY preferred_sports');
-        const ageRes = await pool.query('SELECT age, COUNT(*) FROM satisfaction_surveys GROUP BY age');
+        const [roleRows] = await pool.query('SELECT user_role, COUNT(*) as count FROM satisfaction_surveys GROUP BY user_role');
+        const [freqRows] = await pool.query('SELECT usage_frequency, COUNT(*) as count FROM satisfaction_surveys GROUP BY usage_frequency');
+        const [sportRows] = await pool.query('SELECT preferred_sports, COUNT(*) as count FROM satisfaction_surveys GROUP BY preferred_sports');
+        const [ageRows] = await pool.query('SELECT age, COUNT(*) as count FROM satisfaction_surveys GROUP BY age');
 
         const formatGroup = (rows, keyName) => {
+            if (!Array.isArray(rows)) return {};
             return rows.reduce((acc, row) => {
-                acc[row[keyName] || 'ไม่ระบุ'] = parseInt(row.count);
+                acc[row[keyName] || 'ไม่ระบุ'] = parseInt(row.count, 10);
                 return acc;
             }, {});
         };
@@ -91,12 +92,12 @@ exports.getSurveyStats = async (req, res) => {
         res.json({
             success: true,
             total,
-            averages: avgRes.rows[0],
+            averages: (avgRows && avgRows[0]) || {},
             demographics: {
-                roles: formatGroup(roleRes.rows, 'user_role'),
-                frequencies: formatGroup(freqRes.rows, 'usage_frequency'),
-                sports: formatGroup(sportRes.rows, 'preferred_sports'),
-                ages: formatGroup(ageRes.rows, 'age')
+                roles: formatGroup(roleRows, 'user_role'),
+                frequencies: formatGroup(freqRows, 'usage_frequency'),
+                sports: formatGroup(sportRows, 'preferred_sports'),
+                ages: formatGroup(ageRows, 'age')
             }
         });
 
