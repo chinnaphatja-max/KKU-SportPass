@@ -12,6 +12,7 @@ function validateProductionEnv() {
     if (!process.env.ALLOWED_ORIGINS) missing.push('ALLOWED_ORIGINS');
     if (!process.env.QR_DYNAMIC_SECRET) missing.push('QR_DYNAMIC_SECRET');
     if (!process.env.QR_STATIC_SECRET) missing.push('QR_STATIC_SECRET');
+    if (!process.env.CRON_SECRET) missing.push('CRON_SECRET');
 
     if (missing.length > 0) {
         throw new Error(`FATAL: Missing required production environment variables: ${missing.join(', ')}`);

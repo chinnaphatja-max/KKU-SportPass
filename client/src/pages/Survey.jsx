@@ -21,6 +21,7 @@ import {
   Sparkles,
   Loader2,
   PartyPopper,
+  ClipboardList,
 } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -99,11 +100,32 @@ const RatingRow = ({
 // ---------- Main Survey Component ----------
 export default function Survey() {
   const navigate = useNavigate();
+  const [checkingActive, setCheckingActive] = useState(true);
+  const [surveyClosed, setSurveyClosed] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // Check if an active dynamic survey exists or if survey is currently closed
+  useEffect(() => {
+    axios.get('/api/forms/active-survey')
+      .then(res => {
+        if (res.data?.success && res.data.has_active_survey && res.data.form) {
+          // Dynamic form is active, redirect to the configurable form view
+          navigate(`/form/${res.data.form.id}`, { replace: true });
+        } else {
+          // No active survey available
+          setSurveyClosed(true);
+          setCheckingActive(false);
+        }
+      })
+      .catch(() => {
+        setSurveyClosed(true);
+        setCheckingActive(false);
+      });
+  }, [navigate]);
 
   // Scroll to top on step change
   useEffect(() => {
@@ -258,6 +280,41 @@ export default function Survey() {
       setLoading(false);
     }
   };
+
+  // ---------- Checking & Closed Screens ----------
+  if (checkingActive) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (surveyClosed) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white p-8 md:p-10 rounded-3xl shadow-sm text-center max-w-md w-full border border-gray-100"
+        >
+          <div className="w-16 h-16 bg-gray-100 text-gray-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <ClipboardList size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">ปิดรับแบบประเมินแล้ว</h2>
+          <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+            ขณะนี้ระบบปิดรับการทำแบบประเมินความพึงพอใจแล้ว ขอขอบคุณทุกท่านที่ให้ความร่วมมือ
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-brand-600 text-white py-3 rounded-xl font-semibold hover:bg-brand-700 transition"
+          >
+            กลับสู่หน้าแรก
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   // ---------- Success Screen ----------
   if (success) {

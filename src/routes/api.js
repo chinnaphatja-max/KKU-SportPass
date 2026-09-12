@@ -55,6 +55,7 @@ const { applyBookingTimeouts } = require('../utils/helpers');
 // --- Public Endpoints ---
 router.get('/courts', courtsController.getCourts);
 router.post('/surveys', submissionLimiter, surveyController.submitSurvey);
+router.get('/forms/active-survey', formController.getActiveSurvey);
 router.get('/forms/:id', formController.getPublicForm);
 router.post('/forms/:id/responses', submissionLimiter, formController.submitFormResponse);
 router.post('/cookies/consent', submissionLimiter, trackingController.saveConsent);
@@ -62,12 +63,26 @@ router.post('/cookies/consent', submissionLimiter, trackingController.saveConsen
 // --- Cron / Automated Maintenance Endpoint (Triggered by Vercel Cron or External Pinger) ---
 router.get('/cron/cleanup', async (req, res) => {
     try {
-        if (process.env.CRON_SECRET) {
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cronSecret = process.env.CRON_SECRET;
+
+        // Production: CRON_SECRET is mandatory (enforced by envValidator at startup)
+        if (isProduction) {
+            if (!cronSecret) {
+                return res.status(503).json({ error: 'Cron endpoint disabled: CRON_SECRET not configured' });
+            }
             const authHeader = req.headers.authorization;
-            if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+            if (authHeader !== `Bearer ${cronSecret}`) {
+                return res.status(401).json({ error: 'Unauthorized cron trigger' });
+            }
+        } else if (cronSecret) {
+            // Dev/test: optional check if CRON_SECRET is set
+            const authHeader = req.headers.authorization;
+            if (authHeader !== `Bearer ${cronSecret}`) {
                 return res.status(401).json({ error: 'Unauthorized cron trigger' });
             }
         }
+
         const result = await applyBookingTimeouts();
         res.json({ success: true, ...result, timestamp: new Date().toISOString() });
     } catch (err) {

@@ -1,9 +1,11 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const dbUrl = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost') ? false : {
+  connectionString: dbUrl,
+  ssl: dbUrl && dbUrl.includes('localhost') ? false : {
     rejectUnauthorized: false
   },
   max: process.env.DB_POOL_MAX 

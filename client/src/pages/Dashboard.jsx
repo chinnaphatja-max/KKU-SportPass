@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { CalendarPlus, CheckCircle2, QrCode, MapPin, AlertCircle, X, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Zap, Star, Search, Clock } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, QrCode, MapPin, AlertCircle, X, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Zap, Star, Search, Clock, ClipboardCheck } from 'lucide-react';
 import axios from 'axios';
 import { formatThaiDate } from '../utils/date';
 import { useLanguage } from '../context/LanguageContext';
@@ -45,6 +45,22 @@ export default function Dashboard({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeReminder, setActiveReminder] = useState(null);
+  const [activeSurvey, setActiveSurvey] = useState(null);
+
+  useEffect(() => {
+    // Fetch active satisfaction survey form
+    axios.get('/api/forms/active-survey')
+      .then(res => {
+        if (res.data?.success && res.data.has_active_survey && res.data.form) {
+          setActiveSurvey(res.data.form);
+        } else {
+          setActiveSurvey(null);
+        }
+      })
+      .catch(() => {
+        setActiveSurvey(null);
+      });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -204,31 +220,38 @@ export default function Dashboard({ user }) {
           ))}
         </motion.section>
 
-        {/* Satisfaction Survey Banner */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="mb-8"
-        >
-          <Link to="/survey" className="block relative overflow-hidden bg-gradient-to-r from-orange-500 to-amber-500 rounded-3xl p-6 md:p-8 text-white shadow-lg hover:shadow-xl transition-shadow group">
-            <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:scale-110 transition-transform duration-700"></div>
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shrink-0">
-                  <Star size={28} className="text-white" fill="currentColor" />
+        {/* Satisfaction Survey Banner - Only shown when active in Form System */}
+        {activeSurvey && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-8"
+          >
+            <Link to={`/form/${activeSurvey.id}`} className="block relative overflow-hidden bg-gradient-to-r from-orange-500 to-amber-500 rounded-3xl p-6 md:p-8 text-white shadow-lg hover:shadow-xl transition-shadow group">
+              <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:scale-110 transition-transform duration-700"></div>
+              <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shrink-0">
+                    <Star size={28} className="text-white" fill="currentColor" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <ClipboardCheck size={22} className="text-orange-100 shrink-0" />
+                      <h3 className="text-xl md:text-2xl font-bold">{activeSurvey.title || t('dash_survey_banner_title', 'ทำแบบประเมินความพึงพอใจ')}</h3>
+                    </div>
+                    <p className="text-orange-50 font-medium text-sm md:text-base">
+                      {activeSurvey.description || t('dash_survey_banner_desc', 'ช่วยเราพัฒนา KKU SportPass ให้ดียิ่งขึ้น เพื่อประสบการณ์ที่ยอดเยี่ยมของทุกคน!')}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl md:text-2xl font-bold mb-1">📝 {t('dash_survey_banner_title', 'ทำแบบประเมินความพึงพอใจ')}</h3>
-                  <p className="text-orange-50 font-medium text-sm md:text-base">{t('dash_survey_banner_desc', 'ช่วยเราพัฒนา KKU SportPass ให้ดียิ่งขึ้น เพื่อประสบการณ์ที่ยอดเยี่ยมของทุกคน!')}</p>
+                <div className="shrink-0 bg-white text-orange-600 font-bold px-6 py-3 rounded-xl shadow-sm group-hover:bg-orange-50 transition-colors w-full md:w-auto text-center">
+                  {t('dash_survey_banner_btn', 'เริ่มทำแบบประเมิน')}
                 </div>
               </div>
-              <div className="shrink-0 bg-white text-orange-600 font-bold px-6 py-3 rounded-xl shadow-sm group-hover:bg-orange-50 transition-colors w-full md:w-auto text-center">
-                {t('dash_survey_banner_btn', 'เริ่มทำแบบประเมิน')}
-              </div>
-            </div>
-          </Link>
-        </motion.section>
+            </Link>
+          </motion.section>
+        )}
 
         {/* Interactive Map Section */}
         <InteractiveMap onZoneClick={(zone) => setSelectedZone(zone)} />

@@ -126,6 +126,45 @@ exports.deleteForm = async (req, res) => {
 
 // --- Public APIs ---
 
+// Get currently active survey for public display (e.g. Home Page banner)
+exports.getActiveSurvey = async (req, res) => {
+    try {
+        const [forms] = await pool.query(
+            'SELECT id, title, description, is_active, start_date, end_date, form_schema FROM forms WHERE is_active = true ORDER BY updated_at DESC, id DESC'
+        );
+
+        if (!forms || forms.length === 0) {
+            return res.json({ success: true, has_active_survey: false, form: null });
+        }
+
+        const now = new Date();
+        const activeForm = forms.find(form => {
+            if (!form.is_active) return false;
+            if (form.start_date && new Date(form.start_date) > now) return false;
+            if (form.end_date && new Date(form.end_date) < now) return false;
+            return true;
+        });
+
+        if (!activeForm) {
+            return res.json({ success: true, has_active_survey: false, form: null });
+        }
+
+        res.json({
+            success: true,
+            has_active_survey: true,
+            form: {
+                id: activeForm.id,
+                title: activeForm.title,
+                description: activeForm.description,
+                is_active: true
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching active survey:', err);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการตรวจสอบแบบประเมิน' });
+    }
+};
+
 // Get form for public to fill
 exports.getPublicForm = async (req, res) => {
     try {

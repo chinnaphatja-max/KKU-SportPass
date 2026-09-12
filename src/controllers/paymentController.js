@@ -2,6 +2,19 @@ const crypto = require('crypto');
 const pool = require('../config/db');
 const { logAudit } = require('../utils/auditLogger');
 
+/**
+ * Payment Controller — SIMULATED PAYMENT MODE
+ * 
+ * This controller records payments and issues e-receipts but does NOT connect
+ * to a real payment gateway. Payments are marked as COMPLETED immediately.
+ * 
+ * For real online payments, integrate a payment provider (e.g., PromptPay API,
+ * Omise, Stripe) with webhook verification, idempotency keys, and refund support.
+ * 
+ * All responses include `payment_mode: 'simulated'` so the frontend can display
+ * appropriate messaging to users.
+ */
+
 function generateReceiptNo() {
     const year = new Date().getFullYear();
     const hex = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -58,7 +71,8 @@ exports.processPayment = async (req, res) => {
             return res.json({
                 success: true,
                 message: "รายการนี้ได้รับการชำระเงินเรียบร้อยแล้ว",
-                payment: existingPayment[0]
+                payment: existingPayment[0],
+                payment_mode: 'simulated'
             });
         }
 
@@ -98,8 +112,9 @@ exports.processPayment = async (req, res) => {
 
         res.json({
             success: true,
-            message: "ชำระเงินและออกใบเสร็จอิเล็กทรอนิกส์สำเร็จ",
-            payment
+            message: "ชำระเงินและออกใบเสร็จอิเล็กทรอนิกส์สำเร็จ (บันทึกภายในระบบ)",
+            payment,
+            payment_mode: 'simulated'
         });
     } catch (err) {
         console.error('Process Payment Error:', err);

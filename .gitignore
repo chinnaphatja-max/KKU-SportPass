@@ -7,3 +7,5 @@ database.sqlite
 skills-lock.json
 .DS_Store
 *.log
+~$*.docx
+*.tmp

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ClipboardList, AlertCircle, CheckCircle } from 'lucide-react';
+import { ClipboardList, AlertCircle, CheckCircle, Star, ArrowLeft } from 'lucide-react';
 
 export default function FormView() {
   const { id } = useParams();
@@ -133,8 +133,14 @@ export default function FormView() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
+        <div className="mb-4">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 font-medium px-3 py-1.5 rounded-xl hover:bg-white transition shadow-sm border border-transparent hover:border-gray-200">
+            <ArrowLeft size={16} /> กลับสู่หน้าแรก
+          </Link>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 border-t-8 border-t-brand-500">
           <div className="p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-3">{form.title}</h1>
@@ -193,27 +199,31 @@ export default function FormView() {
               )}
 
               {field.type === 'rating' && (
-                <div className="flex justify-between items-center max-w-sm mx-auto">
-                  {[1, 2, 3, 4, 5].map(rating => (
-                    <label key={rating} className="flex flex-col items-center gap-2 cursor-pointer group">
-                      <input 
-                        type="radio" 
-                        name={field.id}
-                        value={rating}
-                        checked={String(responses[field.id]) === String(rating)}
-                        onChange={(e) => handleChange(field.id, e.target.value)}
-                        className="sr-only"
-                      />
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all
-                        ${String(responses[field.id]) === String(rating) 
-                          ? 'bg-brand-600 text-white scale-110 shadow-md' 
-                          : 'bg-gray-100 text-gray-500 group-hover:bg-brand-100 group-hover:text-brand-600'
-                        }`}
-                      >
-                        {rating}
-                      </div>
-                    </label>
-                  ))}
+                <div className="py-2">
+                  <div className="flex justify-between items-center max-w-sm mx-auto mb-2">
+                    {[1, 2, 3, 4, 5].map(rating => {
+                      const isSelected = Number(responses[field.id]) === rating;
+                      return (
+                        <button
+                          type="button"
+                          key={rating}
+                          onClick={() => handleChange(field.id, rating)}
+                          className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all ${
+                            isSelected
+                              ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 scale-105'
+                              : 'bg-gray-50 text-gray-500 hover:bg-amber-50 hover:text-amber-600 border border-gray-100'
+                          }`}
+                        >
+                          <Star size={22} fill={isSelected ? 'currentColor' : 'none'} className={isSelected ? 'text-white' : 'text-amber-400'} />
+                          <span className="text-xs font-bold">{rating}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between text-[11px] text-gray-400 max-w-sm mx-auto px-1 font-medium">
+                    <span>น้อยที่สุด (1)</span>
+                    <span>มากที่สุด (5)</span>
+                  </div>
                 </div>
               )}
 

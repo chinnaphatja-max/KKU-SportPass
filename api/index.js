@@ -3,10 +3,12 @@ const express = require('express');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const { pool } = require('../src/config/db');
 const passport = require('../src/config/passport');
 const apiRoutes = require('../src/routes/api');
 const structuredLogger = require('../src/middleware/logger');
+const csrfProtection = require('../src/middleware/csrfProtection');
 const { validateProductionEnv } = require('../src/config/envValidator');
 
 // Validate critical secrets before accepting any traffic in production
@@ -32,6 +34,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Persistent PostgreSQL Session Store for Serverless
 const sessionStore = pool ? new pgSession({
@@ -56,6 +59,10 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF Protection (double-submit cookie pattern for mutation routes)
+app.use('/api', csrfProtection);
+app.use('/', csrfProtection);
 
 // Vercel routes `/api/*` to this handler. Mount routes at both `/api` and `/`
 app.use('/api', apiRoutes);

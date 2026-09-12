@@ -11,6 +11,7 @@ describe('Production Environment Enforcement Tests', () => {
             delete process.env.ALLOWED_ORIGINS;
             delete process.env.QR_DYNAMIC_SECRET;
             delete process.env.QR_STATIC_SECRET;
+            delete process.env.CRON_SECRET;
 
             assert.doesNotThrow(() => validateProductionEnv());
         } finally {
@@ -24,6 +25,7 @@ describe('Production Environment Enforcement Tests', () => {
         const prevOrigins = process.env.ALLOWED_ORIGINS;
         const prevDyn = process.env.QR_DYNAMIC_SECRET;
         const prevStat = process.env.QR_STATIC_SECRET;
+        const prevCron = process.env.CRON_SECRET;
 
         try {
             process.env.NODE_ENV = 'production';
@@ -31,13 +33,15 @@ describe('Production Environment Enforcement Tests', () => {
             delete process.env.ALLOWED_ORIGINS;
             delete process.env.QR_DYNAMIC_SECRET;
             delete process.env.QR_STATIC_SECRET;
+            delete process.env.CRON_SECRET;
 
             assert.throws(() => validateProductionEnv(), (err) => {
                 return err.message.includes('FATAL: Missing required production environment variables') &&
                        err.message.includes('SESSION_SECRET') &&
                        err.message.includes('ALLOWED_ORIGINS') &&
                        err.message.includes('QR_DYNAMIC_SECRET') &&
-                       err.message.includes('QR_STATIC_SECRET');
+                       err.message.includes('QR_STATIC_SECRET') &&
+                       err.message.includes('CRON_SECRET');
             });
         } finally {
             process.env.NODE_ENV = prevEnv;
@@ -45,6 +49,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.ALLOWED_ORIGINS = prevOrigins;
             process.env.QR_DYNAMIC_SECRET = prevDyn;
             process.env.QR_STATIC_SECRET = prevStat;
+            process.env.CRON_SECRET = prevCron;
         }
     });
 
@@ -54,6 +59,7 @@ describe('Production Environment Enforcement Tests', () => {
         const prevOrigins = process.env.ALLOWED_ORIGINS;
         const prevDyn = process.env.QR_DYNAMIC_SECRET;
         const prevStat = process.env.QR_STATIC_SECRET;
+        const prevCron = process.env.CRON_SECRET;
 
         try {
             process.env.NODE_ENV = 'production';
@@ -61,6 +67,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.ALLOWED_ORIGINS = 'https://kku-sportpass.vercel.app';
             process.env.QR_DYNAMIC_SECRET = 'valid-qr-dyn-123';
             process.env.QR_STATIC_SECRET = 'valid-qr-stat-123';
+            process.env.CRON_SECRET = 'valid-cron-secret-123';
 
             assert.doesNotThrow(() => validateProductionEnv());
         } finally {
@@ -69,6 +76,38 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.ALLOWED_ORIGINS = prevOrigins;
             process.env.QR_DYNAMIC_SECRET = prevDyn;
             process.env.QR_STATIC_SECRET = prevStat;
+            process.env.CRON_SECRET = prevCron;
+        }
+    });
+
+    it('should throw in production if only CRON_SECRET is missing', () => {
+        const prevEnv = process.env.NODE_ENV;
+        const prevSession = process.env.SESSION_SECRET;
+        const prevOrigins = process.env.ALLOWED_ORIGINS;
+        const prevDyn = process.env.QR_DYNAMIC_SECRET;
+        const prevStat = process.env.QR_STATIC_SECRET;
+        const prevCron = process.env.CRON_SECRET;
+
+        try {
+            process.env.NODE_ENV = 'production';
+            process.env.SESSION_SECRET = 'valid';
+            process.env.ALLOWED_ORIGINS = 'https://example.com';
+            process.env.QR_DYNAMIC_SECRET = 'valid';
+            process.env.QR_STATIC_SECRET = 'valid';
+            delete process.env.CRON_SECRET;
+
+            assert.throws(() => validateProductionEnv(), (err) => {
+                return err.message.includes('CRON_SECRET') &&
+                       !err.message.includes('SESSION_SECRET');
+            });
+        } finally {
+            process.env.NODE_ENV = prevEnv;
+            process.env.SESSION_SECRET = prevSession;
+            process.env.ALLOWED_ORIGINS = prevOrigins;
+            process.env.QR_DYNAMIC_SECRET = prevDyn;
+            process.env.QR_STATIC_SECRET = prevStat;
+            process.env.CRON_SECRET = prevCron;
         }
     });
 });
+

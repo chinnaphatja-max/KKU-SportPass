@@ -5,6 +5,20 @@ import axios from 'axios';
 import { useLanguage } from './context/LanguageContext';
 import LanguageToggle from './components/LanguageToggle';
 
+// CSRF Token: Read from cookie and send with every mutation request
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+// Axios interceptor: automatically attach CSRF token header to all requests
+axios.interceptors.request.use((config) => {
+  const token = getCsrfToken();
+  if (token) {
+    config.headers['X-CSRF-Token'] = token;
+  }
+  return config;
+});
 // Critical Initial Pages
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
@@ -201,6 +215,7 @@ export default function App() {
           
           <Route path="/survey" element={<Survey />} />
           <Route path="/form/:id" element={<FormView />} />
+          <Route path="/forms/:id" element={<FormView />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
           <Route
