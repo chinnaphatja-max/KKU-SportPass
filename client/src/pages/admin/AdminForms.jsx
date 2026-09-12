@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Plus, Edit2, Trash2, ArrowLeft, BarChart2, Calendar, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, ArrowLeft, BarChart2, Calendar, FileText, CheckCircle, XCircle, Download, Star, MessageSquare, Quote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function AdminForms() {
@@ -371,31 +371,126 @@ function FormEditor({ form, stats, activeTab, setActiveTab, onSave, onBack }) {
 
       {activeTab === 'stats' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl p-6 text-white shadow-lg">
-            <p className="text-brand-100 text-sm font-medium mb-1">ผู้ตอบแบบฟอร์มทั้งหมด</p>
-            <h2 className="text-4xl font-bold">{stats?.total || 0} <span className="text-lg font-normal">คน</span></h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-br from-brand-500 to-brand-700 rounded-2xl p-6 text-white shadow-lg">
+            <div>
+              <p className="text-brand-100 text-sm font-medium mb-1">ผู้ตอบแบบฟอร์มทั้งหมด</p>
+              <h2 className="text-4xl font-bold">{stats?.total || 0} <span className="text-lg font-normal">คน</span></h2>
+            </div>
+            <div>
+              <a 
+                href={`/api/admin/forms/${form.id}/export-csv`} 
+                download
+                className="inline-flex items-center gap-2 bg-white text-brand-700 font-bold px-5 py-2.5 rounded-xl text-sm shadow-md hover:bg-brand-50 transition-all"
+              >
+                <Download size={16} /> ส่งออกข้อมูลเป็น CSV (Excel)
+              </a>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {formData.form_schema?.map(field => {
-              if (field.type === 'text' || field.type === 'textarea') return null;
-              
-              const fieldStats = stats?.dynamicStats?.[field.id]?.counts || {};
-              const items = Object.entries(fieldStats).sort((a, b) => b[1] - a[1]);
-              
+              const fieldStat = stats?.dynamicStats?.[field.id];
+              const fieldCounts = fieldStat?.counts || {};
+              const items = Object.entries(fieldCounts).sort((a, b) => {
+                // If keys are numbers (rating 1-5), sort descending by score
+                const numA = Number(a[0]);
+                const numB = Number(b[0]);
+                if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+                return b[1] - a[1];
+              });
+
+              // Rating question display with Mean
+              if (field.type === 'rating') {
+                const avg = fieldStat?.average || '0.00';
+                return (
+                  <div key={field.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <h4 className="font-semibold text-gray-800 text-sm leading-snug">{field.label}</h4>
+                        <span className="shrink-0 inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-bold">
+                          <Star size={12} fill="currentColor" /> {avg} / 5
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5 mt-4">
+                        {[5, 4, 3, 2, 1].map((score) => {
+                          const count = fieldCounts[score] || 0;
+                          const percent = stats?.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+                          return (
+                            <div key={score} className="space-y-1">
+                              <div className="flex justify-between text-xs text-gray-600">
+                                <span className="font-medium">ระดับ {score} ดาว</span>
+                                <span className="font-bold text-gray-800">{count} คน ({percent}%)</span>
+                              </div>
+                              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div 
+                                  className="bg-gradient-to-r from-orange-400 to-amber-500 h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${percent}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-gray-50 text-[11px] text-gray-400 text-right">
+                      ตอบแล้ว {fieldStat?.total || 0} คน
+                    </div>
+                  </div>
+                );
+              }
+
+              // Text / Textarea qualitative feedback display
+              if (field.type === 'text' || field.type === 'textarea') {
+                const comments = fieldStat?.textResponses || [];
+                return (
+                  <div key={field.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm md:col-span-2 lg:col-span-3">
+                    <div className="flex items-center justify-between gap-2 mb-4 pb-2 border-b border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                          <MessageSquare size={16} />
+                        </div>
+                        <h4 className="font-semibold text-gray-800 text-sm sm:text-base">{field.label}</h4>
+                      </div>
+                      <span className="text-xs font-bold bg-gray-100 text-gray-700 py-1 px-2.5 rounded-lg shrink-0">
+                        {comments.length} ความคิดเห็น
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                      {comments.map((text, cIdx) => (
+                        <div key={cIdx} className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-100 flex items-start gap-2.5">
+                          <Quote size={16} className="text-orange-400 shrink-0 mt-0.5" />
+                          <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">{text}</p>
+                        </div>
+                      ))}
+                      {comments.length === 0 && (
+                        <p className="text-sm text-gray-400 py-4 text-center">ยังไม่มีข้อเสนอแนะในข้อนี้</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Dropdown / Select choices
               return (
                 <div key={field.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="font-semibold text-gray-800 mb-4">{field.label}</h3>
+                  <h4 className="font-semibold text-gray-800 text-sm mb-4 leading-snug">{field.label}</h4>
                   <div className="space-y-3">
-                    {items.map(([key, count]) => (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600 truncate mr-2">{key}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold bg-gray-100 text-gray-700 py-1 px-2 rounded-lg">{count}</span>
-                          <span className="text-xs text-gray-400 w-8 text-right">{((count / (stats?.total || 1)) * 100).toFixed(0)}%</span>
+                    {items.map(([key, count]) => {
+                      const pct = stats?.total > 0 ? ((count / stats.total) * 100).toFixed(0) : 0;
+                      return (
+                        <div key={key} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-700 truncate max-w-[180px]">{key}</span>
+                            <span className="font-bold text-gray-800">{count} คน ({pct}%)</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-brand-500 h-1.5 rounded-full" style={{ width: `${pct}%` }}></div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {items.length === 0 && <p className="text-sm text-gray-400">ยังไม่มีข้อมูล</p>}
                   </div>
                 </div>

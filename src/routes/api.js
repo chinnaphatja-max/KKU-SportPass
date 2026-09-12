@@ -56,6 +56,7 @@ const { applyBookingTimeouts } = require('../utils/helpers');
 router.get('/courts', courtsController.getCourts);
 router.post('/surveys', submissionLimiter, surveyController.submitSurvey);
 router.get('/forms/active-survey', formController.getActiveSurvey);
+router.get('/forms/early-evaluation', formController.getEvaluationForm);
 router.get('/forms/:id', formController.getPublicForm);
 router.post('/forms/:id/responses', submissionLimiter, formController.submitFormResponse);
 router.post('/cookies/consent', submissionLimiter, trackingController.saveConsent);
@@ -127,6 +128,7 @@ router.get('/admin/audit-logs', requireRole('admin', 'super_admin', 'viewer'), a
 router.get('/admin/surveys/stats', surveyController.getSurveyStats);
 router.get('/admin/forms', formController.getAllForms);
 router.post('/admin/forms', requireRole('admin', 'super_admin'), formController.createForm);
+router.get('/admin/forms/:id/export-csv', formController.exportFormResponsesCsv);
 router.get('/admin/forms/:id', formController.getFormById);
 router.put('/admin/forms/:id', requireRole('admin', 'super_admin'), formController.updateForm);
 router.delete('/admin/forms/:id', requireRole('admin', 'super_admin'), formController.deleteForm);

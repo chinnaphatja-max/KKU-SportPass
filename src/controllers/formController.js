@@ -31,6 +31,7 @@ exports.getFormById = async (req, res) => {
         // Compute dynamic stats
         const dynamicStats = {};
         let totalResponses = 0;
+        const parsedResponses = [];
 
         if (responses && responses.length > 0) {
             totalResponses = responses.length;
@@ -43,16 +44,43 @@ exports.getFormById = async (req, res) => {
                         ans = {};
                     }
                 }
+                parsedResponses.push({
+                    id: row.id,
+                    created_at: row.created_at,
+                    responses: ans
+                });
+
                 for (const [qId, val] of Object.entries(ans)) {
                     if (!dynamicStats[qId]) {
-                        dynamicStats[qId] = { counts: {}, total: 0 };
+                        dynamicStats[qId] = { counts: {}, total: 0, textResponses: [] };
                     }
                     if (val !== undefined && val !== null && val !== '') {
                         dynamicStats[qId].counts[val] = (dynamicStats[qId].counts[val] || 0) + 1;
                         dynamicStats[qId].total++;
+
+                        if (typeof val === 'string' && val.trim().length > 0 && isNaN(Number(val))) {
+                            dynamicStats[qId].textResponses.push(val.trim());
+                        }
                     }
                 }
             });
+
+            // Compute averages for rating questions (numerical 1-5)
+            for (const qId in dynamicStats) {
+                let sum = 0;
+                let ratingCount = 0;
+                for (const [score, count] of Object.entries(dynamicStats[qId].counts)) {
+                    const num = parseFloat(score);
+                    if (!isNaN(num) && num >= 1 && num <= 5) {
+                        sum += num * count;
+                        ratingCount += count;
+                    }
+                }
+                if (ratingCount > 0) {
+                    dynamicStats[qId].average = (sum / ratingCount).toFixed(2);
+                    dynamicStats[qId].ratingCount = ratingCount;
+                }
+            }
         }
 
         res.json({ 
@@ -60,7 +88,8 @@ exports.getFormById = async (req, res) => {
             form, 
             stats: {
                 total: totalResponses,
-                dynamicStats
+                dynamicStats,
+                responses: parsedResponses
             }
         });
     } catch (err) {
@@ -218,5 +247,90 @@ exports.submitFormResponse = async (req, res) => {
     } catch (err) {
         console.error('Error submitting form response:', err);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการส่งคำตอบ' });
+    }
+};
+
+// Get the specific CP321007 Evaluation Form
+exports.getEvaluationForm = async (req, res) => {
+    try {
+        const [forms] = await pool.query(
+            "SELECT id, title, description, is_active, start_date, end_date, form_schema FROM forms WHERE title LIKE '%Early Design%' OR title LIKE '%CP321007%' ORDER BY id DESC LIMIT 1"
+        );
+
+        if (!forms || forms.length === 0) {
+            return res.status(404).json({ success: false, message: 'ยังไม่พบแบบประเมิน CP321007 ในระบบ' });
+        }
+
+        const form = forms[0];
+        const now = new Date();
+        let isActive = Boolean(form.is_active);
+        if (isActive && form.start_date && new Date(form.start_date) > now) {
+            isActive = false;
+        }
+        if (isActive && form.end_date && new Date(form.end_date) < now) {
+            isActive = false;
+        }
+
+        res.json({
+            success: true,
+            form: {
+                ...form,
+                is_active: isActive
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching evaluation form:', err);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการโหลดแบบประเมิน' });
+    }
+};
+
+// Export responses to CSV with UTF-8 BOM
+exports.exportFormResponsesCsv = async (req, res) => {
+    try {
+        const formId = req.params.id;
+        const [forms] = await pool.query('SELECT title, form_schema FROM forms WHERE id = ?', [formId]);
+        if (forms.length === 0) {
+            return res.status(404).send('Form not found');
+        }
+
+        const form = forms[0];
+        const schema = Array.isArray(form.form_schema) ? form.form_schema : [];
+        const [responses] = await pool.query('SELECT id, created_at, responses_json FROM form_responses WHERE form_id = ? ORDER BY id ASC', [formId]);
+
+        // CSV Header
+        const headers = ['ลำดับ', 'วัน-เวลาที่ตอบ'];
+        schema.forEach((field) => {
+            const cleanLabel = (field.label || field.id).replace(/"/g, '""');
+            headers.push(`"${cleanLabel}"`);
+        });
+
+        const rows = [headers.join(',')];
+
+        responses.forEach((row, idx) => {
+            let ans = row.responses_json;
+            if (typeof ans === 'string') {
+                try { ans = JSON.parse(ans); } catch (e) { ans = {}; }
+            }
+            const dateStr = new Date(row.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+            const line = [idx + 1, `"${dateStr}"`];
+
+            schema.forEach(field => {
+                const val = ans[field.id];
+                const textVal = val !== undefined && val !== null ? String(val).replace(/"/g, '""') : '';
+                line.push(`"${textVal}"`);
+            });
+
+            rows.push(line.join(','));
+        });
+
+        const csvContent = '\uFEFF' + rows.join('\r\n');
+        const filename = `form_${formId}_responses_${Date.now()}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.status(200).send(csvContent);
+    } catch (err) {
+        console.error('Error exporting form CSV:', err);
+        res.status(500).send('Error exporting form responses');
     }
 };

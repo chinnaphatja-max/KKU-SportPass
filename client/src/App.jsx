@@ -214,6 +214,7 @@ export default function App() {
           <Route path="/register" element={<Register onLoginSuccess={checkAuth} />} />
           
           <Route path="/survey" element={<Survey />} />
+          <Route path="/evaluation" element={<FormView />} />
           <Route path="/form/:id" element={<FormView />} />
           <Route path="/forms/:id" element={<FormView />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
