@@ -334,6 +334,29 @@ function FormEditor({ form, stats, activeTab, setActiveTab, onSave, onBack }) {
                     </div>
                   </div>
                   
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">หมวดหมู่ / ส่วน (Section)</label>
+                      <input 
+                        type="text" 
+                        value={field.section || ''} 
+                        onChange={(e) => handleUpdateQuestion(index, 'section', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+                        placeholder="เช่น ส่วนที่ 1: ข้อมูลทั่วไป"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">คำอธิบายส่วน (Section Description)</label>
+                      <input 
+                        type="text" 
+                        value={field.section_description || ''} 
+                        onChange={(e) => handleUpdateQuestion(index, 'section_description', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+                        placeholder="เช่น คำชี้แจง: โปรดเลือกตอบ..."
+                      />
+                    </div>
+                  </div>
+
                   {field.type === 'select' && (
                     <div className="mb-3">
                       <label className="block text-xs font-medium text-gray-500 mb-1">ตัวเลือก (คั่นด้วยจุลภาค ,)</label>

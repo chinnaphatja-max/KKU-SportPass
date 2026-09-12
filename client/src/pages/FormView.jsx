@@ -13,7 +13,9 @@ import {
   BookOpen, 
   Send,
   HelpCircle,
-  Award
+  Award,
+  Info,
+  Layers
 } from 'lucide-react';
 
 // Likert Scale descriptors for 1-5 rating questions
@@ -97,6 +99,22 @@ export default function FormView() {
     const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
     return { answered, total, percent };
   }, [form, responses]);
+
+  // Extract unique sections
+  const sections = useMemo(() => {
+    if (!form || !form.form_schema) return [];
+    const map = new Map();
+    form.form_schema.forEach(field => {
+      if (field.section && !map.has(field.section)) {
+        map.set(field.section, {
+          title: field.section,
+          description: field.section_description || '',
+          firstFieldId: field.id
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [form]);
 
   const validate = () => {
     const errs = {};
@@ -234,6 +252,7 @@ export default function FormView() {
 
   // Group questions by section
   let currentSection = null;
+  let sectionIndexTracker = 0;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-gray-800 font-sans pb-24 selection:bg-orange-200 selection:text-orange-900">
@@ -319,13 +338,38 @@ export default function FormView() {
           </div>
         </div>
 
+        {/* Section Navigation Quick Jump */}
+        {sections.length > 1 && (
+          <div className="mb-6 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <span className="text-xs font-bold text-gray-400 px-1 shrink-0 flex items-center gap-1.5">
+              <Layers size={14} className="text-orange-500" /> หมวดหมู่:
+            </span>
+            {sections.map((sec, sIdx) => (
+              <button
+                key={sIdx}
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById(`section-anchor-${sIdx}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="text-xs px-3.5 py-1.5 rounded-xl font-medium bg-slate-50 text-gray-600 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300 transition shrink-0 border border-gray-200"
+              >
+                ส่วนที่ {sIdx + 1}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Question Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {form.form_schema && form.form_schema.map((field) => {
             // Check if we need to render a Section Header
             let renderSection = false;
+            let currentSecIdx = 0;
             if (field.section && field.section !== currentSection) {
               currentSection = field.section;
+              currentSecIdx = sectionIndexTracker;
+              sectionIndexTracker++;
               renderSection = true;
             }
 
@@ -333,16 +377,27 @@ export default function FormView() {
 
             return (
               <div key={field.id} id={`field-${field.id}`} className="space-y-4">
-                {/* Section Header */}
+                {/* Section Header with Description */}
                 {renderSection && (
-                  <div className="pt-6 pb-1">
-                    <div className="bg-gradient-to-r from-orange-600 to-amber-600 rounded-2xl p-4 text-white shadow-md flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                        <Award size={18} />
+                  <div id={`section-anchor-${currentSecIdx}`} className="pt-8 pb-2">
+                    <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 rounded-3xl p-5 sm:p-7 text-white shadow-lg border border-orange-400/20 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 -mr-6 -mt-6 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/20 text-white backdrop-blur-sm shadow-sm">
+                            <Layers size={13} /> ส่วนที่ {currentSecIdx + 1}
+                          </span>
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-extrabold tracking-tight leading-snug">
+                          {field.section}
+                        </h3>
+                        {field.section_description && (
+                          <div className="mt-3.5 p-3.5 sm:p-4 bg-black/15 backdrop-blur-md border border-white/20 rounded-2xl text-xs sm:text-sm text-orange-50 leading-relaxed whitespace-pre-wrap flex items-start gap-2.5">
+                            <Info size={18} className="shrink-0 mt-0.5 text-amber-200" />
+                            <div className="flex-1 font-medium">{field.section_description}</div>
+                          </div>
+                        )}
                       </div>
-                      <h3 className="text-base sm:text-lg font-bold tracking-tight">
-                        {field.section}
-                      </h3>
                     </div>
                   </div>
                 )}
