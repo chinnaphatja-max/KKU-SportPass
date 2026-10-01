@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { CalendarPlus, CheckCircle2, QrCode, MapPin, AlertCircle, X, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Zap, Star, Search, Clock, ClipboardCheck } from 'lucide-react';
+import { CalendarPlus, CheckCircle2, QrCode, MapPin, AlertCircle, X, Navigation, Waves, Target, Feather, Activity, Goal, LayoutGrid, Trophy, Dumbbell, CircleDot, Shield, Crosshair, Zap, Star, Search, Clock, ClipboardCheck, Bell, ChevronDown, ChevronLeft, ChevronRight, Info, Sparkles } from 'lucide-react';
 import axios from 'axios';
-import { formatThaiDate } from '../utils/date';
+import { formatThaiDate, formatFullThaiDate, getBangkokDateStr, getBangkokDate, getQuickDateList, addDays } from '../utils/date';
 import { useLanguage } from '../context/LanguageContext';
 
 const SPORT_META = {
@@ -37,7 +37,22 @@ function getSportMeta(type, language = 'th') {
 
 export default function Dashboard({ user }) {
   const { t, language } = useLanguage();
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const todayStr = getBangkokDateStr(0);
+  const tomorrowStr = getBangkokDateStr(1);
+  const maxDateStr = getBangkokDateStr(7);
+
+  // If visiting late at night (>= 21:00), default initial date directly to tomorrow
+  const bangkokNow = getBangkokDate(0);
+  const isLateNight = bangkokNow.getHours() >= 21;
+  const initialDate = isLateNight ? tomorrowStr : todayStr;
+
+  const [date, setDate] = useState(initialDate);
+  const [userManuallySelected, setUserManuallySelected] = useState(false);
+  const [autoSwitchedNotice, setAutoSwitchedNotice] = useState(
+    isLateNight ? { reason: 'passed', from: todayStr, to: tomorrowStr } : null
+  );
+
   const [selectedSport, setSelectedSport] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedZone, setSelectedZone] = useState(null);
@@ -80,18 +95,48 @@ export default function Dashboard({ user }) {
     setError(null);
     try {
       const res = await axios.get(`/api/courts?date=${date}`);
-      setData(res.data);
+      const fetchedData = res.data;
+      setData(fetchedData);
+
+      // Requirement: "หากมันเต็มหมดแล้วหรือหมดช่วงเวลาทั้งวันแล้วก็เอาของวันใหม่มาแสดงเลย"
+      if (date === todayStr && !userManuallySelected && fetchedData) {
+        const fetchedCourts = fetchedData.courts || [];
+        const operatingSlots = fetchedData.operatingSlots || {};
+        const pastSlots = fetchedData.pastSlots || {};
+
+        let totalBookableCapacity = 0;
+        for (const c of fetchedCourts) {
+          totalBookableCapacity += (c.available_capacity_count || 0);
+        }
+
+        const hasOperatingSlots = Object.values(operatingSlots).some(arr => arr.length > 0);
+        const allSlotsPassed = hasOperatingSlots && Object.entries(operatingSlots).every(([cid, slots]) => {
+          const passed = pastSlots[cid] || [];
+          return slots.every(s => passed.includes(s));
+        });
+
+        if (totalBookableCapacity === 0 || allSlotsPassed) {
+          setDate(tomorrowStr);
+          setAutoSwitchedNotice({
+            reason: allSlotsPassed ? 'passed' : 'full',
+            from: todayStr,
+            to: tomorrowStr
+          });
+          return;
+        }
+      }
     } catch (err) {
       console.error(err);
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
-  }, [date]);
+  }, [date, todayStr, tomorrowStr, userManuallySelected]);
 
   useEffect(() => {
     fetchCourts();
   }, [fetchCourts]);
+
 
   const courts = data?.courts || [];
   const sportsList = ['all', ...new Set(courts.map(c => c.type))];
@@ -131,13 +176,13 @@ export default function Dashboard({ user }) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold mb-4 border border-white/10"
+                  className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-sm font-semibold mb-4 border border-white/10"
                 >
                   <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
                   {t('dash_system_active', 'ระบบเปิดให้บริการแล้ว')}
                 </motion.div>
-                <h1 className="text-3xl md:text-5xl font-extrabold mb-3 tracking-tight">{t('dash_hero_title', 'จองสนามกีฬา มข.')}</h1>
-                <p className="text-brand-50 md:text-lg opacity-90 max-w-md leading-relaxed font-light">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-3">{t('dash_hero_title', 'จองสนามกีฬา มข.')}</h1>
+                <p className="text-white/90 text-sm md:text-base opacity-95 max-w-md leading-relaxed font-medium">
                   {t('dash_hero_sub', 'แพลตฟอร์มการจองออนไลน์ที่ทันสมัยที่สุด สะดวก รวดเร็ว พร้อมระบบยืนยันสิทธิ์ด้วย QR Code')}
                 </p>
               </div>
@@ -160,17 +205,17 @@ export default function Dashboard({ user }) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#fe6e00] bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full">
-                    🔔 {t('dash_reminder_today', 'รายการจองวันนี้')}
+                  <span className="text-xs font-extrabold uppercase text-[#fe6e00] bg-orange-50 border border-orange-200 px-3 py-1 rounded-full flex items-center gap-1.5">
+                    <Bell size={13} className="text-[#fe6e00]" /> {t('dash_reminder_today', 'รายการจองวันนี้')}
                   </span>
-                  <span className="text-xs font-mono font-bold text-gray-700">
+                  <span className="text-sm font-mono font-bold text-gray-700">
                     {activeReminder.booking_code || `#${activeReminder.id}`}
                   </span>
                 </div>
-                <p className="font-extrabold text-gray-900 text-sm md:text-base mt-1">
+                <p className="font-extrabold text-gray-900 text-base md:text-lg mt-1">
                   {activeReminder.court_name} ({activeReminder.start_time.substring(0, 5)} - {activeReminder.end_time.substring(0, 5)} น.)
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-sm text-gray-600 mt-1">
                   {activeReminder.status === 'PENDING'
                     ? 'รอยืนยันสิทธิ์ล่วงหน้า (Pre-Confirm) ก่อนเริ่มรอบการใช้งาน'
                     : 'ยืนยันสิทธิ์เรียบร้อยแล้ว เตรียมพร้อมสแกน QR เพื่อเช็คอินที่สนาม'}
@@ -181,16 +226,16 @@ export default function Dashboard({ user }) {
               {activeReminder.status === 'PENDING' ? (
                 <Link
                   to="/bookings"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#fe6e00] hover:bg-[#e06100] text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#fe6e00] hover:bg-[#e06100] text-white rounded-xl text-sm font-bold shadow-md transition active:scale-95"
                 >
-                  <CheckCircle2 size={15} /> {t('btn_pre_confirm', 'กดยืนยันสิทธิ์')}
+                  <CheckCircle2 size={16} /> {t('btn_pre_confirm', 'กดยืนยันสิทธิ์')}
                 </Link>
               ) : (
                 <Link
                   to="/scan"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md transition active:scale-95"
                 >
-                  <QrCode size={15} /> {t('btn_checkin_qr', 'สแกน QR เช็คอิน')}
+                  <QrCode size={16} /> {t('btn_checkin_qr', 'สแกน QR เช็คอิน')}
                 </Link>
               )}
             </div>
@@ -214,8 +259,8 @@ export default function Dashboard({ user }) {
               <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300`}>
                 <item.icon className="w-6 h-6 md:w-7 md:h-7" />
               </div>
-              <span className="text-xs md:text-sm font-bold text-gray-800">{item.label}</span>
-              <span className="hidden md:block text-[11px] text-gray-500 mt-1">{item.desc}</span>
+              <span className="text-sm md:text-base font-bold text-gray-800">{item.label}</span>
+              <span className="hidden md:block text-xs text-gray-500 mt-1">{item.desc}</span>
             </div>
           ))}
         </motion.section>
@@ -317,58 +362,182 @@ export default function Dashboard({ user }) {
           )}
         </AnimatePresence>
 
+        {/* Auto-Switched to Tomorrow Notice */}
+        {autoSwitchedNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs sm:text-sm font-medium flex items-start sm:items-center justify-between gap-3 shadow-sm mt-6"
+          >
+            <div className="flex items-center gap-2.5">
+              <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div>
+                <span className="font-bold">
+                  {autoSwitchedNotice.reason === 'passed'
+                    ? t('dash_auto_switch_notice', 'รอบเวลาสำหรับวันนี้หมดแล้ว ระบบแสดงสนามสำหรับวันพรุ่งนี้ให้อัตโนมัติ')
+                    : (language === 'en' ? "Today's rounds are fully booked. Showing tomorrow schedule automatically." : 'รอบเวลาของวันนี้เต็มหมดแล้ว ระบบแสดงสนามสำหรับวันพรุ่งนี้ให้อัตโนมัติ')}
+                </span>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {language === 'en'
+                    ? `Showing courts for ${formatFullThaiDate(date, language)}`
+                    : `กำลังแสดงสนามสำหรับ ${formatFullThaiDate(date, language)}`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDate(todayStr);
+                setUserManuallySelected(true);
+                setAutoSwitchedNotice(null);
+              }}
+              className="px-3 py-1.5 bg-amber-100/80 hover:bg-amber-200 border border-amber-300 text-amber-900 rounded-lg text-xs font-bold shrink-0 transition cursor-pointer"
+            >
+              {t('court_view_today_anyway', 'ดูรอบวันนี้')}
+            </button>
+          </motion.div>
+        )}
+
         {/* Filter Section (Sticky on Mobile) */}
-        <div className="sticky top-0 z-30 bg-gray-50/80 backdrop-blur-xl pb-4 pt-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:bg-transparent sm:backdrop-blur-none sm:pt-0 mt-8">
-          <section className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6 flex flex-col md:flex-row gap-4 md:items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-              <div className="flex-shrink-0">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">เลือกวันที่ต้องการ</label>
-                <div className="relative group">
+        <div className="sticky top-0 z-30 bg-gray-50/80 backdrop-blur-xl pb-4 pt-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:bg-transparent sm:backdrop-blur-none sm:pt-0 mt-6">
+          <section className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4">
+            {/* Top row: Date Selector & Search Box */}
+            <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+              {/* Date Selector Row */}
+              <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center">
+                <label className="text-sm font-bold text-gray-700 shrink-0 flex items-center gap-1.5">
+                  <CalendarPlus className="w-4 h-4 text-brand-600" />
+                  <span>{t('dash_select_date', 'เลือกวันที่ต้องการจอง')}</span>
+                </label>
+
+                <div className="flex items-center gap-1.5">
+                  {/* Prev Day Button */}
                   <button
                     type="button"
-                    onClick={() => document.getElementById('dashboard-date-picker')?.showPicker()}
-                    className="flex items-center justify-between w-full md:w-auto bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 md:py-3 outline-none group-focus-within:ring-2 group-focus-within:ring-brand-500/50 group-focus-within:border-brand-500 transition-all font-semibold text-gray-700 text-sm md:text-base cursor-pointer relative z-0 hover:bg-gray-100"
+                    disabled={date <= todayStr}
+                    onClick={() => {
+                      const prev = addDays(date, -1);
+                      if (prev >= todayStr) {
+                        setDate(prev);
+                        setUserManuallySelected(true);
+                        setAutoSwitchedNotice(null);
+                      }
+                    }}
+                    className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer shrink-0"
+                    title="วันก่อนหน้า"
+                    aria-label="วันก่อนหน้า"
                   >
-                    <div className="flex items-center gap-3">
-                      <CalendarPlus className="w-5 h-5 text-gray-400 group-hover:text-brand-500 transition-colors" />
-                      {formatThaiDate(date, true)}
-                    </div>
+                    <ChevronLeft size={16} />
                   </button>
-                  <input 
-                    id="dashboard-date-picker"
-                    type="date" 
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="absolute bottom-0 left-0 w-0 h-0 opacity-0 pointer-events-none"
-                  />
+
+                  {/* Next Day Button */}
+                  <button
+                    type="button"
+                    disabled={date >= maxDateStr}
+                    onClick={() => {
+                      const next = addDays(date, 1);
+                      if (next <= maxDateStr) {
+                        setDate(next);
+                        setUserManuallySelected(true);
+                        setAutoSwitchedNotice(null);
+                      }
+                    }}
+                    className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer shrink-0"
+                    title="วันถัดไป"
+                    aria-label="วันถัดไป"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+
+                  {/* Custom Date Picker Overlay Button */}
+                  <div className="relative group cursor-pointer flex-1 sm:flex-initial">
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 group-hover:bg-gray-100 transition-all font-semibold text-gray-800 text-sm pointer-events-none select-none">
+                      <span>{formatThaiDate(date, true, language)}</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <input 
+                      id="dashboard-date-picker"
+                      type="date" 
+                      value={date}
+                      min={todayStr}
+                      max={maxDateStr}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setDate(e.target.value);
+                          setUserManuallySelected(true);
+                          setAutoSwitchedNotice(null);
+                        }
+                      }}
+                      onClick={(e) => {
+                        try { e.currentTarget.showPicker(); } catch (_) {}
+                      }}
+                      aria-label="เลือกวันที่ต้องการ"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                      style={{ WebkitAppearance: 'none' }}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">ค้นหาสนาม</label>
+              {/* Search Box */}
+              <div className="flex-1 max-w-md">
                 <div className="relative">
                   <input
                     type="text"
                     placeholder={t('dash_search_placeholder', 'พิมพ์ชื่อสนาม เช่น แบดมินตัน, ว่ายน้ำ...')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-8 py-2.5 md:py-3 text-sm font-medium focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 outline-none transition"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-8 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 outline-none transition"
                   />
                   <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   {searchQuery && (
                     <button 
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer"
                     >
-                      ✕
+                      <X size={14} />
                     </button>
                   )}
                 </div>
               </div>
             </div>
-            
-            <div className="flex-1 w-full overflow-hidden">
+
+            {/* Quick Date Chips Bar (Horizontal Scrollable) */}
+            <div className="border-t border-gray-100 pt-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+                {getQuickDateList(7, language).map((chip) => {
+                  const isActive = (chip.dateStr === date);
+                  return (
+                    <button
+                      key={chip.dateStr}
+                      type="button"
+                      onClick={() => {
+                        setDate(chip.dateStr);
+                        setUserManuallySelected(true);
+                        setAutoSwitchedNotice(null);
+                      }}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-center transition-all cursor-pointer select-none ${
+                        isActive
+                          ? 'bg-brand-600 text-white font-bold shadow-md shadow-brand-500/25 ring-2 ring-brand-600/20'
+                          : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200/70 font-semibold'
+                      }`}
+                    >
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-900'} font-bold mr-1.5`}>
+                        {chip.mainLabel}
+                      </span>
+                      <span className={`text-[11px] ${isActive ? 'text-brand-100' : 'text-gray-500'} font-medium`}>
+                        {chip.subLabel}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sport Categories Filter */}
+            <div className="border-t border-gray-100 pt-3">
               <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{t('label_court_type', 'ประเภทกีฬา')}</label>
+
               <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide snap-x">
                 {sportsList.map((type) => {
                   const meta = getSportMeta(type, language);
@@ -418,7 +587,9 @@ export default function Dashboard({ user }) {
             </motion.div>
           ) : visibleCourts.length === 0 ? (
             <div className="text-center py-20 bg-white border border-gray-100 rounded-3xl">
-              <div className="text-6xl mb-4 grayscale opacity-20">🏟️</div>
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 border border-gray-100">
+                <LayoutGrid size={32} />
+              </div>
               <h3 className="text-lg font-bold text-gray-800">ไม่พบสนามกีฬา</h3>
               <p className="text-gray-400 font-medium text-sm mt-1">ลองเปลี่ยนประเภทกีฬาหรือวันที่ดูอีกครั้ง</p>
             </div>
@@ -462,15 +633,15 @@ function CourtCard({ court, date, closedReason, index }) {
             <Icon className="w-7 h-7" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-extrabold text-gray-900 text-lg truncate leading-tight group-hover:text-brand-600 transition-colors">{court.name}</h3>
+            <h3 className="font-bold text-gray-900 text-base md:text-lg truncate group-hover:text-brand-600 transition-colors">{court.name}</h3>
             <div className="flex items-center gap-2 mt-1">
-                <p className={`text-xs font-bold ${meta.color}`}>{meta.label}</p>
+                <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
                 {court.price && court.price !== 'ฟรี' ? (
-                  <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md">
+                  <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md">
                     {court.price}
                   </span>
                 ) : court.price === 'ฟรี' ? (
-                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">
+                  <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">
                     {t('label_free', 'ฟรี')}
                   </span>
                 ) : null}
@@ -480,12 +651,12 @@ function CourtCard({ court, date, closedReason, index }) {
         
         <div className="px-6 pb-6 pt-0 bg-white flex-1 flex flex-col justify-end">
           {closedReason ? (
-            <div className="bg-red-50 text-red-500 p-3 rounded-xl text-center text-xs font-semibold border border-red-100">
+            <div className="bg-red-50 text-red-500 p-3 rounded-xl text-center text-sm font-semibold border border-red-100">
               {t('dash_closed', 'ปิดให้บริการ')}: {closedReason}
             </div>
           ) : (
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs font-semibold text-gray-400 group-hover:text-brand-500 transition-colors">{t('dash_view_slots', 'คลิกเพื่อดูตารางเวลา')}</span>
+              <span className="text-sm font-semibold text-gray-500 group-hover:text-brand-500 transition-colors">{t('dash_view_slots', 'คลิกเพื่อดูตารางเวลา')}</span>
               <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
                 <Navigation size={16} className="-rotate-90" />
               </div>
@@ -533,14 +704,14 @@ function MapArea({ top, left, width, height, zone, title, delay, onClick }) {
       {/* The Circular Pin */}
       <div className="relative flex items-center justify-center group-hover:scale-110 transition-transform">
         <div className="absolute w-6 h-6 bg-brand-500/40 rounded-full animate-ping"></div>
-        <div className="w-6 h-6 bg-brand-500 border-2 border-white rounded-full shadow-md z-10 flex items-center justify-center text-white text-[10px] font-bold">
+        <div className="w-6 h-6 bg-brand-500 border-2 border-white rounded-full shadow-md z-10 flex items-center justify-center text-white text-xs font-bold">
           {zone.replace('Zone ', '')}
         </div>
       </div>
       
       {/* Tooltip on hover */}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-gray-900 text-white text-xs font-bold py-2 px-3 rounded-lg opacity-0 group-hover:opacity-100 group-hover:-translate-y-2 transition-all pointer-events-none z-20 shadow-xl">
-        <div className="text-brand-300 text-[10px] uppercase mb-0.5">{zone}</div>
+        <div className="text-brand-300 text-xs uppercase mb-0.5">{zone}</div>
         {title}
         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
       </div>

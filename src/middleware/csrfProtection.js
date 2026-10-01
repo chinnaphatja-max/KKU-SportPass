@@ -22,6 +22,8 @@ const EXEMPT_PATHS = [
     '/api/auth/ssonext/callback',
     '/api/cookies/consent',
     '/api/cron/cleanup',
+    '/api/payments/webhook',
+    '/api/payment/webhook',
 ];
 
 // Path prefixes exempt from CSRF (public form/survey submissions)

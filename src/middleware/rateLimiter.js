@@ -27,8 +27,18 @@ const submissionLimiter = rateLimit({
     message: { error: 'ส่งแบบฟอร์มบ่อยเกินไป กรุณารอสักครู่' }
 });
 
+// Strict rate limit for financial payment and checkout transactions
+const paymentLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 20, // Limit each IP to 20 payment/checkout requests per 5 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'ทำรายการทางการเงินบ่อยเกินไป กรุณารอสักครู่ (Too Many Requests)' }
+});
+
 module.exports = {
     authLimiter,
     bookingLimiter,
-    submissionLimiter
+    submissionLimiter,
+    paymentLimiter
 };

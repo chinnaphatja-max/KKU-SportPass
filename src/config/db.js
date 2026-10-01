@@ -5,6 +5,7 @@ const dbUrl = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || pro
 
 const pool = new Pool({
   connectionString: dbUrl,
+  options: "-c timezone=Asia/Bangkok",
   ssl: dbUrl && dbUrl.includes('localhost') ? false : {
     rejectUnauthorized: false
   },

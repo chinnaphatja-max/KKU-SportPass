@@ -16,12 +16,12 @@ export default function LanguageToggle({ className = '', variant = 'light' }) {
       role="group"
       aria-label="Language selector"
     >
-      <Globe size={13} className={`ml-1 ${isDark ? 'text-white/60' : 'text-gray-400'}`} />
+      <Globe size={15} className={`ml-1.5 ${isDark ? 'text-white/60' : 'text-gray-400'}`} />
       
       <button
         type="button"
         onClick={() => setLanguage('th')}
-        className={`px-2 py-0.5 rounded-full transition-all text-[11px] font-bold ${
+        className={`px-2.5 py-1 rounded-full transition-all text-xs font-bold ${
           language === 'th'
             ? isDark
               ? 'bg-[#fe6e00] text-white shadow-sm'
@@ -38,7 +38,7 @@ export default function LanguageToggle({ className = '', variant = 'light' }) {
       <button
         type="button"
         onClick={() => setLanguage('en')}
-        className={`px-2 py-0.5 rounded-full transition-all text-[11px] font-bold ${
+        className={`px-2.5 py-1 rounded-full transition-all text-xs font-bold ${
           language === 'en'
             ? isDark
               ? 'bg-[#fe6e00] text-white shadow-sm'

@@ -16,6 +16,8 @@ export default function AdminBookings() {
   const [courtId, setCourtId] = useState('');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, total_pages: 1, has_next: false, has_prev: false, limit: 50 });
   const [courts, setCourts] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,15 +49,29 @@ export default function AdminBookings() {
       if (courtId) params.append('court_id', courtId);
       if (status) params.append('status', status);
       if (search.trim()) params.append('search', search.trim());
+      params.append('page', page);
+      params.append('limit', 50);
 
       const res = await axios.get(`/api/admin/bookings?${params.toString()}`);
       setBookings(res.data.bookings || []);
+      if (res.data.pagination) {
+        setPagination(res.data.pagination);
+      } else {
+        setPagination({
+          total: res.data.bookings?.length || 0,
+          total_pages: 1,
+          page: 1,
+          limit: 50,
+          has_next: false,
+          has_prev: false
+        });
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [date, courtId, status, search]);
+  }, [date, courtId, status, search, page]);
 
   useEffect(() => {
     fetchCourts();
@@ -106,52 +122,19 @@ export default function AdminBookings() {
   };
 
   const exportToCsv = () => {
-    if (bookings.length === 0) {
-      alert('ไม่มีข้อมูลการจองสำหรับการส่งออก');
-      return;
-    }
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (courtId) params.append('court_id', courtId);
+    if (status) params.append('status', status);
+    if (search.trim()) params.append('search', search.trim());
+    window.location.href = `/api/admin/bookings/export-csv?${params.toString()}`;
+  };
 
-    const headers = [
-      'รหัสการจอง',
-      'วันที่จอง',
-      'เวลาเริ่ม',
-      'เวลาสิ้นสุด',
-      'สนาม',
-      'ประเภทกีฬา',
-      'ชื่อผู้จอง',
-      'อีเมล',
-      'เบอร์โทรศัพท์',
-      'สถานะ',
-      'เหตุผลการยกเลิก',
-      'ผู้ทำรายการแทน (Override)'
-    ];
-
-    const rows = bookings.map(b => [
-      `"${b.booking_code || b.id}"`,
-      `"${b.booking_date || ''}"`,
-      `"${b.start_time || ''}"`,
-      `"${b.end_time || ''}"`,
-      `"${(b.court_name || '').replace(/"/g, '""')}"`,
-      `"${b.court_type || ''}"`,
-      `"${(b.user_name || '').replace(/"/g, '""')}"`,
-      `"${b.user_email || ''}"`,
-      `"${b.user_phone || ''}"`,
-      `"${STATUS_MAP[b.status]?.label || b.status}"`,
-      `"${(b.cancellation_reason || '').replace(/"/g, '""')}"`,
-      `"${(b.manual_override_name || '').replace(/"/g, '""')}"`
-    ]);
-
-    // Prepend UTF-8 BOM (\uFEFF) so Microsoft Excel recognizes Thai characters correctly
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `kku-sportpass-bookings-${date || 'all'}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const exportPaymentsCsv = () => {
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (search.trim()) params.append('search', search.trim());
+    window.location.href = `/api/admin/payments/export-csv?${params.toString()}`;
   };
 
   const setRelativeDate = (offsetDays) => {
@@ -169,7 +152,7 @@ export default function AdminBookings() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 font-sans max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -180,13 +163,20 @@ export default function AdminBookings() {
             แดชบอร์ดปฏิบัติการสำหรับเจ้าหน้าที่สนาม ค้นหา เช็คอินแทน และตรวจสอบสถานะแบบเรียลไทม์
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <button
             onClick={exportToCsv}
-            disabled={bookings.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl shadow-sm transition active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl shadow-sm transition active:scale-95"
+            title="ดาวน์โหลดรายการจองทั้งหมดตามเงื่อนไขค้นหาเป็นไฟล์ CSV"
           >
-            <Download size={14} className="text-[#fe6e00]" /> ส่งออก CSV
+            <Download size={14} className="text-[#fe6e00]" /> ส่งออก Bookings (CSV)
+          </button>
+          <button
+            onClick={exportPaymentsCsv}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl shadow-sm transition active:scale-95"
+            title="ดาวน์โหลดประวัติการชำระเงินและใบเสร็จเป็นไฟล์ CSV"
+          >
+            <Download size={14} className="text-emerald-600" /> ส่งออก Payments (CSV)
           </button>
           <button
             onClick={fetchBookings}
@@ -307,18 +297,18 @@ export default function AdminBookings() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100 text-gray-600 font-bold uppercase tracking-wider text-xs">
                 <tr>
-                  <th className="py-3 px-4">รหัสการจอง</th>
-                  <th className="py-3 px-4">ผู้จอง</th>
-                  <th className="py-3 px-4">สนาม</th>
-                  <th className="py-3 px-4">วันที่ & เวลา</th>
-                  <th className="py-3 px-4">สถานะ</th>
-                  <th className="py-3 px-4 text-right">การจัดการ</th>
+                  <th className="py-3.5 px-4">รหัสการจอง</th>
+                  <th className="py-3.5 px-4">ผู้จอง</th>
+                  <th className="py-3.5 px-4">สนาม</th>
+                  <th className="py-3.5 px-4">วันที่ & เวลา</th>
+                  <th className="py-3.5 px-4">สถานะ</th>
+                  <th className="py-3.5 px-4 text-right">การจัดการ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-100">
                 {bookings.map((b) => {
                   const statusInfo = STATUS_MAP[b.status] || STATUS_MAP.PENDING;
                   const canCheckin = b.status === 'PENDING' || b.status === 'PRE_CONFIRMED';
@@ -326,39 +316,39 @@ export default function AdminBookings() {
 
                   return (
                     <tr key={b.id} className="hover:bg-gray-50/80 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 font-mono font-bold bg-gray-100 text-gray-800 px-2 py-0.5 rounded border border-gray-200 text-[11px]">
-                          <Ticket size={11} className="text-[#fe6e00]" />
+                      <td className="py-4 px-4">
+                        <span className="inline-flex items-center gap-1.5 font-mono font-bold bg-gray-100 text-gray-800 px-2.5 py-1 rounded-md border border-gray-200 text-xs">
+                          <Ticket size={14} className="text-[#fe6e00]" />
                           {b.booking_code || `#${b.id}`}
                         </span>
                         {b.manual_override_name && (
                           <div className="mt-1">
-                            <span className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                            <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
                               Override: {b.manual_override_name}
                             </span>
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-bold text-gray-900">{b.user_name || 'ไม่ระบุ'}</p>
-                        <p className="text-[11px] text-gray-500">{b.user_email || '-'}</p>
-                        {b.user_phone && <p className="text-[10px] text-gray-400">{b.user_phone}</p>}
+                      <td className="py-4 px-4">
+                        <p className="font-bold text-gray-900 text-sm sm:text-base">{b.user_name || 'ไม่ระบุ'}</p>
+                        <p className="text-xs text-gray-600">{b.user_email || '-'}</p>
+                        {b.user_phone && <p className="text-xs text-gray-500">{b.user_phone}</p>}
                       </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-semibold text-gray-800">{b.court_name}</p>
-                        <span className="text-[10px] uppercase font-bold text-gray-400">{b.court_type}</span>
+                      <td className="py-4 px-4">
+                        <p className="font-bold text-gray-900">{b.court_name}</p>
+                        <span className="text-xs uppercase font-bold text-gray-500">{b.court_type}</span>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-medium text-gray-800">{formatThaiDate(b.booking_date, true)}</p>
-                        <p className="text-[11px] text-gray-500 font-mono">{b.start_time.substring(0, 5)} - {b.end_time.substring(0, 5)} น.</p>
+                      <td className="py-4 px-4">
+                        <p className="font-semibold text-gray-900">{formatThaiDate(b.booking_date, true)}</p>
+                        <p className="text-xs text-gray-600 font-mono font-bold">{b.start_time.substring(0, 5)} - {b.end_time.substring(0, 5)} น.</p>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${statusInfo.color}`}>
+                      <td className="py-4 px-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusInfo.color}`}>
                           {statusInfo.label}
                         </span>
                         {b.cancellation_reason && (
-                          <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-                            <MessageSquare size={10} /> {b.cancellation_reason}
+                          <p className="text-xs text-red-600 mt-1 flex items-center gap-1 font-medium">
+                            <MessageSquare size={13} /> {b.cancellation_reason}
                           </p>
                         )}
                       </td>
@@ -369,9 +359,9 @@ export default function AdminBookings() {
                               onClick={() => openActionModal(b, 'checkin')}
                               disabled={actionLoading === b.id}
                               title="เช็คอินแทนผู้ใช้โดยเจ้าหน้าที่"
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition shadow-sm active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-sm active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
                             >
-                              <UserCheck size={12} /> เช็คอิน
+                              <UserCheck size={14} /> เช็คอิน
                             </button>
                           )}
                           {canCancel && (
@@ -379,9 +369,9 @@ export default function AdminBookings() {
                               onClick={() => openActionModal(b, 'cancel')}
                               disabled={actionLoading === b.id}
                               title="ยกเลิกการจอง"
-                              className="px-2 py-1 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-lg text-[11px] font-semibold transition border border-gray-200 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
+                              className="px-2.5 py-1.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-lg text-xs font-semibold transition border border-gray-200 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1"
                             >
-                              <Ban size={12} /> ยกเลิก
+                              <Ban size={14} /> ยกเลิก
                             </button>
                           )}
                         </div>
@@ -391,6 +381,34 @@ export default function AdminBookings() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {bookings.length > 0 && (
+          <div className="p-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm font-semibold text-gray-500 bg-white">
+            <div>
+              แสดง {(pagination.page - 1) * (pagination.limit || 50) + 1} - {Math.min(pagination.page * (pagination.limit || 50), pagination.total)} จากทั้งหมด <span className="font-bold text-gray-800">{pagination.total}</span> รายการ
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={!pagination.has_prev}
+                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                ย้อนกลับ
+              </button>
+              <span className="px-3 py-1.5 font-bold text-gray-800 bg-gray-50 rounded-lg">
+                หน้า {pagination.page} / {pagination.total_pages || 1}
+              </span>
+              <button
+                disabled={!pagination.has_next}
+                onClick={() => setPage(prev => prev + 1)}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                ถัดไป
+              </button>
+            </div>
           </div>
         )}
       </div>

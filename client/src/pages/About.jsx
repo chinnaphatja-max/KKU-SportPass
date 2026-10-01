@@ -178,8 +178,8 @@ export default function About() {
       <footer className="bg-white border-t border-orange-200 mt-12 py-10">
         <div className="max-w-4xl mx-auto px-4 text-center space-y-4">
           <img src="/KKU_SportPass.svg" alt="KKU SportPass Logo" className="h-12 w-auto mx-auto" onError={(e) => { e.target.onerror=null; e.target.src="/KKU_SportPass.png"; }} />
-          <p className="text-xs text-gray-700 font-bold">&copy; 2026 KKU SportPass — มหาวิทยาลัยขอนแก่น</p>
-          <div className="bg-orange-50/70 p-4 rounded-2xl border border-orange-100 max-w-2xl mx-auto text-[11px] text-gray-600 leading-relaxed font-medium">
+          <p className="text-sm text-gray-800 font-bold">&copy; 2026 KKU SportPass — มหาวิทยาลัยขอนแก่น</p>
+          <div className="bg-orange-50/70 p-4 rounded-2xl border border-orange-100 max-w-2xl mx-auto text-sm text-gray-700 leading-relaxed font-medium">
             <Info size={16} className="text-brand-600 mx-auto mb-1" />
             ใช้เพื่อศึกษาในรายวิชา CP321007 Design Thinking for Information Technology (การคิดเชิงออกแบบสำหรับเทคโนโลยีสารสนเทศ) <br />
             หลักสูตรวิทยาศาสตรบัณฑิต สาขาวิชาเทคโนโลยีสารสนเทศและนวัตกรรมอัจฉริยะ วิทยาลัยการคอมพิวเตอร์ มหาวิทยาลัยขอนแก่น

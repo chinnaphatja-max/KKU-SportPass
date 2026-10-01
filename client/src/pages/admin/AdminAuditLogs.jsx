@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Search, Filter, RefreshCw, Clock, User, FileText, Database } from 'lucide-react';
+import { ShieldCheck, Search, Filter, RefreshCw, Clock, User, FileText, Database, X } from 'lucide-react';
 import axios from 'axios';
 import { formatThaiDate } from '../../utils/date';
 
@@ -20,6 +20,7 @@ const ACTION_COLORS = {
 export default function AdminAuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState('');
   const [action, setAction] = useState('');
   const [targetType, setTargetType] = useState('');
   const [search, setSearch] = useState('');
@@ -28,6 +29,7 @@ export default function AdminAuditLogs() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      if (date) params.append('date', date);
       if (action) params.append('action', action);
       if (targetType) params.append('target_type', targetType);
       if (search.trim()) params.append('search', search.trim());
@@ -40,7 +42,7 @@ export default function AdminAuditLogs() {
     } finally {
       setLoading(false);
     }
-  }, [action, targetType, search]);
+  }, [date, action, targetType, search]);
 
   useEffect(() => {
     fetchLogs();
@@ -77,6 +79,26 @@ export default function AdminAuditLogs() {
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm mb-6 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+        {/* Date Filter */}
+        <div className="w-full lg:w-44 flex items-center gap-1.5">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#fe6e00]/50 bg-white"
+            title="กรองตามวันที่บันทึก"
+          />
+          {date && (
+            <button
+              onClick={() => setDate('')}
+              className="text-xs text-gray-400 hover:text-gray-600 p-1 rounded bg-gray-100 flex items-center justify-center"
+              title="ล้างวันที่"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
         {/* Action Filter */}
         <div className="w-full lg:w-56">
           <select

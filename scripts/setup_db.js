@@ -46,9 +46,17 @@ async function migrateSchema(pool) {
             password TEXT NULL,
             phone TEXT NULL,
             role TEXT DEFAULT 'user',
+            user_type TEXT DEFAULT 'student',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `);
+    try {
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type TEXT DEFAULT 'student'");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS faculty TEXT NULL");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id TEXT NULL");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT NULL");
+        await pool.query("CREATE INDEX IF NOT EXISTS idx_users_user_type ON users(user_type)");
+    } catch (e) { /* column or index already exists */ }
     console.log("✅ Table 'users' verified.");
 
     // Table: Sport Types
@@ -181,9 +189,12 @@ async function migrateSchema(pool) {
 
     // Insert Default Settings (safe: ON CONFLICT DO UPDATE only label_th)
     const defaultSettings = [
-        ['pre_confirm_open_minutes', '10', 'เวลาเปิดให้กดยืนยันก่อนถึงเวลา (นาที)'],
-        ['pre_confirm_close_minutes', '5', 'เวลาปิดให้กดยืนยันก่อนถึงเวลา (นาที)'],
-        ['checkin_grace_minutes', '10', 'อนุโลมเวลาเช็คอินสายได้ไม่เกิน (นาที)'],
+        ['pre_confirm_open_minutes', '10', 'เวลาเปิดให้กดยืนยันขอผ่อนผันเวลา (นาที)'],
+        ['pre_confirm_close_minutes', '5', 'เวลาปิดให้กดยืนยันขอผ่อนผันเวลา (นาที)'],
+        ['checkin_early_minutes', '10', 'เวลาเปิดให้เช็คอินล่วงหน้าก่อนเริ่มรอบ (นาที)'],
+        ['checkin_baseline_grace_minutes', '5', 'เวลาผ่อนผันเช็คอินพื้นฐานก่อนตัดสิทธิ์หลุดจอง (นาที)'],
+        ['checkin_grace_minutes', '10', 'อนุโลมเวลาเช็คอินสายสำหรับผู้ที่ยืนยันสิทธิ์ (นาที)'],
+
         ['gps_radius_meters', '30', 'รัศมี GPS สำหรับเช็คอิน (เมตร)'],
         ['allowed_email_domains', 'kkumail.com,kku.ac.th', 'โดเมนอีเมลที่อนุญาตให้สมัครสมาชิก'],
         ['booking_slot_minutes', '60', 'ระยะเวลาจองต่อสล็อต (นาที)'],
@@ -329,6 +340,26 @@ async function migrateSchema(pool) {
     `);
     console.log("✅ Table 'booking_waitlists' verified.");
 
+    // Table: Pricing Rules
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS pricing_rules (
+            id SERIAL PRIMARY KEY,
+            court_id TEXT NOT NULL REFERENCES courts(id) ON DELETE CASCADE,
+            user_type TEXT NOT NULL CHECK (user_type IN ('student', 'staff', 'external')),
+            price_per_slot NUMERIC(10, 2) NOT NULL DEFAULT 0,
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            effective_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT uq_court_user_type UNIQUE (court_id, user_type)
+        )
+    `);
+    try {
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_pricing_rules_court_type ON pricing_rules(court_id, user_type, is_active)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_pricing_rules_effective ON pricing_rules(effective_date)');
+    } catch (e) { /* indexes already exist */ }
+    console.log("✅ Table 'pricing_rules' verified.");
+
     // Table: Payments
     await pool.query(`
         CREATE TABLE IF NOT EXISTS payments (
@@ -336,10 +367,16 @@ async function migrateSchema(pool) {
             booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+            base_amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+            net_amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
             payment_method TEXT NOT NULL DEFAULT 'promptpay',
             payment_status TEXT NOT NULL DEFAULT 'COMPLETED',
             transaction_ref TEXT UNIQUE NOT NULL,
             receipt_no TEXT UNIQUE NOT NULL,
+            slip_url TEXT NULL,
+            verified_by INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+            verified_at TIMESTAMP NULL,
+            rejection_reason TEXT NULL,
             paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -347,6 +384,33 @@ async function migrateSchema(pool) {
         CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments(booking_id);
         CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
     `);
+    try {
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS base_amount NUMERIC(10, 2) NOT NULL DEFAULT 0');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS net_amount NUMERIC(10, 2) NOT NULL DEFAULT 0');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS slip_url TEXT NULL');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS verified_by INTEGER NULL REFERENCES users(id) ON DELETE SET NULL');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP NULL');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS rejection_reason TEXT NULL');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS currency VARCHAR(3) NOT NULL DEFAULT \'THB\'');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT \'PENDING\'');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS gateway_transaction_id VARCHAR(128)');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS qr_payload TEXT');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS raw_webhook_payload JSONB');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS failure_reason TEXT');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128)');
+        await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP');
+
+        await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS ticket_qr TEXT');
+        await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP');
+
+        await pool.query('ALTER TABLE pricing_rules ADD COLUMN IF NOT EXISTS sport_type VARCHAR(50) NOT NULL DEFAULT \'general\'');
+        await pool.query('ALTER TABLE pricing_rules ADD COLUMN IF NOT EXISTS user_category VARCHAR(20) NOT NULL DEFAULT \'STUDENT\'');
+        await pool.query('ALTER TABLE pricing_rules ADD COLUMN IF NOT EXISTS start_time TIME NOT NULL DEFAULT \'06:00:00\'');
+        await pool.query('ALTER TABLE pricing_rules ADD COLUMN IF NOT EXISTS end_time TIME NOT NULL DEFAULT \'22:00:00\'');
+        await pool.query('ALTER TABLE pricing_rules ADD COLUMN IF NOT EXISTS base_price_per_hour NUMERIC(10, 2) NOT NULL DEFAULT 0.00');
+        await pool.query('ALTER TABLE pricing_rules ADD COLUMN IF NOT EXISTS lighting_fee_per_hour NUMERIC(10, 2) NOT NULL DEFAULT 0.00');
+    } catch (e) { /* columns already exist */ }
     console.log("✅ Table 'payments' verified.");
 
     // Production performance indexes
@@ -391,11 +455,11 @@ async function seedDevData(pool) {
     const defaultHash = await bcrypt.hash('password123', 10);
     
     await pool.query(`
-        INSERT INTO users (name, email, password, role) VALUES 
-        ('ชินภัทร จ้า (Admin)', 'admin@mock.com', $1, 'admin'),
-        ('นักศึกษา (Student)', 'student@mock.com', $2, 'user'),
-        ('บุคลากร (Staff)', 'staff@mock.com', $3, 'user'),
-        ('บุคคลภายนอก (Outsider)', 'outsider@mock.com', $4, 'user')
+        INSERT INTO users (name, email, password, role, user_type) VALUES 
+        ('ชินภัทร จ้า (Admin)', 'admin@mock.com', $1, 'admin', 'staff'),
+        ('นักศึกษา (Student)', 'student@mock.com', $2, 'user', 'student'),
+        ('บุคลากร (Staff)', 'staff@mock.com', $3, 'user', 'staff'),
+        ('บุคคลภายนอก (Outsider)', 'outsider@mock.com', $4, 'user', 'external')
     `, [defaultHash, defaultHash, defaultHash, defaultHash]);
     console.log("✅ Mock users seeded.");
 
@@ -499,6 +563,45 @@ async function seedDevData(pool) {
         await pool.query("UPDATE courts SET fee_amount = 100, is_fee_required = true WHERE id = 'z1-4'");
     } catch (e) { /* ignore if courts don't exist */ }
     console.log("✅ Court fees configured.");
+
+    // Seed Pricing Rules for 3 User Groups (student, staff, external)
+    await pool.query('DELETE FROM pricing_rules');
+    const defaultPricing = [
+        { court_id: 'z2-4', student: 20, staff: 40, external: 100 }, // Badminton
+        { court_id: 'z1-4', student: 0, staff: 20, external: 150 },  // Tennis 1-4 (Student Free)
+        { court_id: 'z4-1', student: 0, staff: 20, external: 150 },  // Tennis 5-8 (Student Free)
+        { court_id: 'z1-1', student: 20, staff: 40, external: 100 }, // Fitness
+        { court_id: 'z1-2', student: 20, staff: 40, external: 100 }, // Swimming
+        { court_id: 'z1-3', student: 500, staff: 1000, external: 3600 }, // Football 50yr
+        { court_id: 'z1-8', student: 200, staff: 500, external: 1000 },  // Football 7
+        { court_id: 'z2-1', student: 100, staff: 300, external: 900 },   // Futsal
+        { court_id: 'z2-2', student: 0, staff: 20, external: 60 },       // Table tennis
+        { court_id: 'z2-3', student: 0, staff: 20, external: 100 },      // Martial arts
+        { court_id: 'z2-5', student: 100, staff: 200, external: 600 },   // Shooting
+        { court_id: 'z2-6', student: 100, staff: 200, external: 600 },   // Archery
+        { court_id: 'z3-1', student: 100, staff: 300, external: 1000 },  // Softball
+        { court_id: 'z3-2', student: 100, staff: 300, external: 1000 },  // Hockey
+        { court_id: 'z3-3', student: 100, staff: 300, external: 1000 },  // Rugby
+        { court_id: 'z3-4', student: 100, staff: 300, external: 1000 },  // Football 2
+        { court_id: 'z4-2', student: 100, staff: 300, external: 1000 },  // Football 3
+        { court_id: 'z1-5', student: 0, staff: 0, external: 0 },         // Petanque (Free)
+        { court_id: 'z1-6', student: 0, staff: 0, external: 0 },         // Basketball (Free)
+        { court_id: 'z1-7', student: 0, staff: 0, external: 0 },         // Sepak Takraw (Free)
+        { court_id: 'z1-9', student: 0, staff: 0, external: 0 }          // Volleyball (Free)
+    ];
+
+    for (const rule of defaultPricing) {
+        await pool.query(`
+            INSERT INTO pricing_rules (court_id, user_type, price_per_slot, is_active)
+            VALUES 
+                ($1, 'student', $2, true),
+                ($1, 'staff', $3, true),
+                ($1, 'external', $4, true)
+            ON CONFLICT (court_id, user_type) DO UPDATE 
+            SET price_per_slot = EXCLUDED.price_per_slot
+        `, [rule.court_id, rule.student, rule.staff, rule.external]);
+    }
+    console.log("✅ Pricing rules seeded for all courts.");
 
     console.log("🌱 Development data seeding completed!");
 }

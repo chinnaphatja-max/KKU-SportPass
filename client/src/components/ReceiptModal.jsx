@@ -47,16 +47,16 @@ export default function ReceiptModal({ receipt, onClose }) {
             <div className="inline-flex items-center justify-center gap-2 mb-2">
               <img src="/KKU_SportPass.png" alt="KKU SportPass" className="w-10 h-10 rounded-lg object-contain" />
               <div className="text-left">
-                <h2 className="text-lg font-extrabold tracking-tight text-gray-900 leading-tight">KKU SportPass</h2>
-                <p className="text-[11px] text-gray-500 font-medium">{t('receipt_sub', 'สำนักการกีฬา มหาวิทยาลัยขอนแก่น')}</p>
+                <h2 className="text-xl font-extrabold tracking-tight text-gray-900 leading-tight">KKU SportPass</h2>
+                <p className="text-xs text-gray-600 font-medium">{t('receipt_sub', 'สำนักการกีฬา มหาวิทยาลัยขอนแก่น')}</p>
               </div>
             </div>
-            <h1 className="text-base font-bold text-gray-800 uppercase tracking-wide mt-2">{t('receipt_title', 'ใบเสร็จรับเงินอิเล็กทรอนิกส์')}</h1>
-            <p className="text-xs text-gray-400 font-mono mt-0.5">E-RECEIPT / OFFICIAL TAX INVOICE</p>
+            <h1 className="text-lg font-bold text-gray-800 uppercase tracking-wide mt-2">{t('receipt_title', 'ใบเสร็จรับเงินอิเล็กทรอนิกส์')}</h1>
+            <p className="text-xs text-gray-500 font-mono mt-0.5">E-RECEIPT / OFFICIAL TAX INVOICE</p>
           </div>
 
           {/* Receipt Info Grid */}
-          <div className="grid grid-cols-2 gap-3 text-xs bg-gray-50 p-4 rounded-xl border border-gray-100">
+          <div className="grid grid-cols-2 gap-3 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100">
             <div>
               <span className="text-gray-500 block">{t('receipt_no', 'เลขที่ใบเสร็จ')}:</span>
               <span className="font-mono font-bold text-gray-900 text-sm">{receipt.receipt_no}</span>
@@ -69,7 +69,7 @@ export default function ReceiptModal({ receipt, onClose }) {
             </div>
             <div>
               <span className="text-gray-500 block">{t('receipt_ref', 'รหัสอ้างอิงธุรกรรม')}:</span>
-              <span className="font-mono text-gray-700 text-[11px]">{receipt.transaction_ref}</span>
+              <span className="font-mono text-gray-700 text-xs font-semibold">{receipt.transaction_ref}</span>
             </div>
             <div className="text-right">
               <span className="text-gray-500 block">{t('receipt_method', 'ช่องทางชำระเงิน')}:</span>
@@ -112,7 +112,7 @@ export default function ReceiptModal({ receipt, onClose }) {
                 <tr>
                   <td className="p-2.5">
                     <p className="font-semibold text-gray-800">ค่าบำรุงรักษาสนามกีฬา ({receipt.court_name})</p>
-                    <p className="text-[11px] text-gray-500">รอบเวลา {receipt.start_time?.substring(0, 5)} - {receipt.end_time?.substring(0, 5)} น.</p>
+                    <p className="text-xs text-gray-500 font-medium">รอบเวลา {receipt.start_time?.substring(0, 5)} - {receipt.end_time?.substring(0, 5)} น.</p>
                   </td>
                   <td className="p-2.5 text-right font-mono font-semibold">{amount.toFixed(2)}</td>
                 </tr>
@@ -120,24 +120,24 @@ export default function ReceiptModal({ receipt, onClose }) {
               <tfoot className="bg-brand-50/50 border-t border-gray-200">
                 <tr>
                   <td className="p-3 font-bold text-gray-900">{t('receipt_amount', 'ยอดชำระสุทธิ')} (Total Net Amount)</td>
-                  <td className="p-3 text-right font-mono font-extrabold text-base text-brand-700">{amount.toFixed(2)} ฿</td>
+                  <td className="p-3 text-right font-mono font-extrabold text-lg text-brand-700">{amount.toFixed(2)} ฿</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
           {/* Status Badge & Legal Note */}
-          <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 text-xs">
-            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 text-sm">
+            <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
             <div>
               <p className="font-bold">สถานะ: ชำระเงินเรียบร้อยแล้ว (Payment Completed)</p>
-              <p className="text-[10px] text-emerald-700">ตรวจสอบและรับรองความถูกต้องโดยระบบ KKU SportPass</p>
+              <p className="text-xs text-emerald-700">ตรวจสอบและรับรองความถูกต้องโดยระบบ KKU SportPass</p>
             </div>
           </div>
 
           <div className="text-center pt-2 pb-1 border-t border-gray-100">
-            <p className="text-[10px] text-gray-400 leading-relaxed flex items-center justify-center gap-1">
-              <ShieldCheck size={12} className="text-gray-400" />
+            <p className="text-xs text-gray-500 leading-relaxed flex items-center justify-center gap-1">
+              <ShieldCheck size={14} className="text-gray-400" />
               {t('receipt_official_seal', 'เอกสารนี้ออกโดยระบบอัตโนมัติ มีผลสมบูรณ์ตาม พ.ร.บ.ธุรกรรมทางอิเล็กทรอนิกส์')}
             </p>
           </div>

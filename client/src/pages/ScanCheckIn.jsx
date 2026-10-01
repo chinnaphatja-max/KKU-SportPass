@@ -271,14 +271,14 @@ export default function ScanCheckIn() {
             {/* GPS info */}
             <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200">
               <div className="flex items-center gap-2.5">
-                <MapPin size={18} className="text-brand-600" />
+                <MapPin size={20} className="text-brand-600" />
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">{t('scan_gps_status', 'สถานะ GPS')}</p>
-                  <span className="text-xs font-bold text-gray-700">
+                  <p className="text-xs font-bold text-gray-500 uppercase">{t('scan_gps_status', 'สถานะ GPS')}</p>
+                  <span className="text-sm font-bold text-gray-800">
                     {coords
                       ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)} (${t('scan_gps_ready', 'พร้อมระบุตำแหน่ง')})`
                       : permissionDenied
-                        ? '⚠️ ไม่อนุญาต'
+                        ? 'ไม่อนุญาต'
                         : t('scan_gps_waiting', 'กำลังดึงพิกัด GPS...')}
                   </span>
                 </div>
@@ -289,13 +289,13 @@ export default function ScanCheckIn() {
                 className="p-2.5 bg-white border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition shadow-sm"
                 title="ดึงตำแหน่งอีกครั้ง"
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={18} />
               </button>
             </div>
 
             {/* QR payload debug (optional) */}
             {qrPayload && (
-              <div className="mt-3 text-[10px] text-gray-400 break-all bg-gray-50 p-2 rounded-lg border border-gray-200">
+              <div className="mt-3 text-xs text-gray-500 break-all bg-gray-50 p-2.5 rounded-lg border border-gray-200">
                 QR: {qrPayload}
               </div>
             )}

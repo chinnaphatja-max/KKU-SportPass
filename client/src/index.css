@@ -1,9 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+html {
+  font-size: 16px !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16.5px !important;
   }
 }
+
+@media (min-width: 1280px) {
+  html {
+    font-size: 17px !important;
+  }
+}
+
+*, ::before, ::after {
+  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+body {
+  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+input, button, select, textarea {
+  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Headings: Generous line-height so Thai vowels and tone marks never collide */
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.35 !important;
+  letter-spacing: 0.005em;
+  font-weight: 700;
+}
+
+b, strong, .font-bold, .font-extrabold, .font-black {
+  font-weight: 700;
+}
+
+/* Prevent tight tracking from squishing Thai vowels together */
+.tracking-tight, .tracking-tighter {
+  letter-spacing: 0 !important;
+}
+
+/* Ensure line-height in headings never crushes Thai tone marks */
+.leading-tight, .leading-none {
+  line-height: 1.35 !important;
+}
+
+
+/* Typography Guarantees: Legible and comfortable reading without inflating UI cards */
+.text-xs {
+  font-size: 0.95rem !important;
+  line-height: 1.45rem !important;
+}
+
+.text-sm {
+  font-size: 1.05rem !important;
+  line-height: 1.55rem !important;
+}
+
+.text-base {
+  font-size: 1.15rem !important;
+  line-height: 1.65rem !important;
+}
+
+/* Hide scrollbar for Chrome, Safari, Opera, Edge, and Firefox */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom sleek scrollbar for admin navigation */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+

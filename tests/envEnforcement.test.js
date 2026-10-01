@@ -26,6 +26,7 @@ describe('Production Environment Enforcement Tests', () => {
         const prevDyn = process.env.QR_DYNAMIC_SECRET;
         const prevStat = process.env.QR_STATIC_SECRET;
         const prevCron = process.env.CRON_SECRET;
+        const prevWebhook = process.env.PAYMENT_WEBHOOK_SECRET;
 
         try {
             process.env.NODE_ENV = 'production';
@@ -34,6 +35,7 @@ describe('Production Environment Enforcement Tests', () => {
             delete process.env.QR_DYNAMIC_SECRET;
             delete process.env.QR_STATIC_SECRET;
             delete process.env.CRON_SECRET;
+            delete process.env.PAYMENT_WEBHOOK_SECRET;
 
             assert.throws(() => validateProductionEnv(), (err) => {
                 return err.message.includes('FATAL: Missing required production environment variables') &&
@@ -41,7 +43,8 @@ describe('Production Environment Enforcement Tests', () => {
                        err.message.includes('ALLOWED_ORIGINS') &&
                        err.message.includes('QR_DYNAMIC_SECRET') &&
                        err.message.includes('QR_STATIC_SECRET') &&
-                       err.message.includes('CRON_SECRET');
+                       err.message.includes('CRON_SECRET') &&
+                       err.message.includes('PAYMENT_WEBHOOK_SECRET');
             });
         } finally {
             process.env.NODE_ENV = prevEnv;
@@ -50,6 +53,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.QR_DYNAMIC_SECRET = prevDyn;
             process.env.QR_STATIC_SECRET = prevStat;
             process.env.CRON_SECRET = prevCron;
+            process.env.PAYMENT_WEBHOOK_SECRET = prevWebhook;
         }
     });
 
@@ -60,6 +64,7 @@ describe('Production Environment Enforcement Tests', () => {
         const prevDyn = process.env.QR_DYNAMIC_SECRET;
         const prevStat = process.env.QR_STATIC_SECRET;
         const prevCron = process.env.CRON_SECRET;
+        const prevWebhook = process.env.PAYMENT_WEBHOOK_SECRET;
 
         try {
             process.env.NODE_ENV = 'production';
@@ -68,6 +73,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.QR_DYNAMIC_SECRET = 'valid-qr-dyn-123';
             process.env.QR_STATIC_SECRET = 'valid-qr-stat-123';
             process.env.CRON_SECRET = 'valid-cron-secret-123';
+            process.env.PAYMENT_WEBHOOK_SECRET = 'valid-webhook-secret-123';
 
             assert.doesNotThrow(() => validateProductionEnv());
         } finally {
@@ -77,6 +83,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.QR_DYNAMIC_SECRET = prevDyn;
             process.env.QR_STATIC_SECRET = prevStat;
             process.env.CRON_SECRET = prevCron;
+            process.env.PAYMENT_WEBHOOK_SECRET = prevWebhook;
         }
     });
 
@@ -87,6 +94,7 @@ describe('Production Environment Enforcement Tests', () => {
         const prevDyn = process.env.QR_DYNAMIC_SECRET;
         const prevStat = process.env.QR_STATIC_SECRET;
         const prevCron = process.env.CRON_SECRET;
+        const prevWebhook = process.env.PAYMENT_WEBHOOK_SECRET;
 
         try {
             process.env.NODE_ENV = 'production';
@@ -94,6 +102,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.ALLOWED_ORIGINS = 'https://example.com';
             process.env.QR_DYNAMIC_SECRET = 'valid';
             process.env.QR_STATIC_SECRET = 'valid';
+            process.env.PAYMENT_WEBHOOK_SECRET = 'valid';
             delete process.env.CRON_SECRET;
 
             assert.throws(() => validateProductionEnv(), (err) => {
@@ -107,6 +116,7 @@ describe('Production Environment Enforcement Tests', () => {
             process.env.QR_DYNAMIC_SECRET = prevDyn;
             process.env.QR_STATIC_SECRET = prevStat;
             process.env.CRON_SECRET = prevCron;
+            process.env.PAYMENT_WEBHOOK_SECRET = prevWebhook;
         }
     });
 });

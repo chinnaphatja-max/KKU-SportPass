@@ -51,15 +51,17 @@ exports.getFormById = async (req, res) => {
                 });
 
                 for (const [qId, val] of Object.entries(ans)) {
-                    if (!dynamicStats[qId]) {
+                    if (qId === '__proto__' || qId === 'constructor' || qId === 'prototype') continue;
+                    if (!Object.prototype.hasOwnProperty.call(dynamicStats, qId)) {
                         dynamicStats[qId] = { counts: {}, total: 0, textResponses: [] };
                     }
                     if (val !== undefined && val !== null && val !== '') {
-                        dynamicStats[qId].counts[val] = (dynamicStats[qId].counts[val] || 0) + 1;
+                        const safeVal = String(val).slice(0, 500); // Bounded size
+                        dynamicStats[qId].counts[safeVal] = (dynamicStats[qId].counts[safeVal] || 0) + 1;
                         dynamicStats[qId].total++;
 
                         if (typeof val === 'string' && val.trim().length > 0 && isNaN(Number(val))) {
-                            dynamicStats[qId].textResponses.push(val.trim());
+                            dynamicStats[qId].textResponses.push(val.trim().slice(0, 1000));
                         }
                     }
                 }

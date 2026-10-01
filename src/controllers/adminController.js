@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const { logAudit } = require('../utils/auditLogger');
+const { invalidateSettingCache } = require('../utils/helpers');
 
 function validateCoordinate(lat, lng) {
     const nLat = parseFloat(lat);
@@ -63,7 +64,7 @@ exports.getAdminCourts = async (req, res) => {
 
 exports.createCourt = async (req, res) => {
     try {
-        const { name, type, lat, lng, capacity } = req.body;
+        const { name, type, lat, lng, capacity, fee_amount, is_fee_required, fee_structure, pricing_unit } = req.body;
         if (!name) return res.status(400).json({ error: "กรุณาระบุชื่อสนาม" });
         if (!validateCoordinate(lat, lng)) return res.status(400).json({ error: "พิกัดไม่ถูกต้อง" });
 
@@ -77,17 +78,22 @@ exports.createCourt = async (req, res) => {
         const newId = prefix + String(num).padStart(3, '0');
 
         const courtCapacity = parseInt(capacity, 10) || 1;
+        const feeAmount = fee_amount !== undefined ? Number(fee_amount) : 0;
+        const isFeeReq = is_fee_required !== undefined ? Boolean(is_fee_required) : false;
+        const feeStruct = fee_structure ? JSON.stringify(fee_structure) : null;
+        const pUnit = pricing_unit || 'per_hour';
 
         await pool.query(
-            "INSERT INTO courts (id, name, type, icon, capacity, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [newId, name.trim(), type || 'other', icon, courtCapacity, lat, lng]
+            `INSERT INTO courts (id, name, type, icon, capacity, latitude, longitude, fee_amount, is_fee_required, fee_structure, pricing_unit) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [newId, name.trim(), type || 'other', icon, courtCapacity, lat, lng, feeAmount, isFeeReq, feeStruct, pUnit]
         );
 
         await logAudit(req, {
             action: 'CREATE_COURT',
             target_type: 'court',
             target_id: newId,
-            details: { name: name.trim(), type: type || 'other', capacity: courtCapacity, lat, lng }
+            details: { name: name.trim(), type: type || 'other', capacity: courtCapacity, lat, lng, is_fee_required: isFeeReq, pricing_unit: pUnit }
         });
 
         res.json({ success: true, id: newId });
@@ -99,25 +105,80 @@ exports.createCourt = async (req, res) => {
 
 exports.updateCourt = async (req, res) => {
     try {
-        const { id, name, lat, lng } = req.body;
-        if (!id || !name) return res.status(400).json({ error: "ข้อมูลไม่ครบถ้วน" });
-        if (!validateCoordinate(lat, lng)) return res.status(400).json({ error: "พิกัดสนามไม่ถูกต้อง" });
+        const { id, name, lat, lng, capacity, type, fee_amount, is_fee_required, fee_structure, pricing_unit } = req.body;
+        if (!id) return res.status(400).json({ error: "ระบุรหัสสนาม (ID)" });
 
-        await pool.query("UPDATE courts SET name = ?, latitude = ?, longitude = ? WHERE id = ?", [name.trim(), lat, lng, id]);
+        const [existingCourts] = await pool.query("SELECT * FROM courts WHERE id = ?", [id]);
+        if (!existingCourts || existingCourts.length === 0) {
+            return res.status(404).json({ error: "ไม่พบข้อมูลสนามที่ต้องการแก้ไข" });
+        }
+        const current = existingCourts[0];
+
+        const updatedName = (name !== undefined && name !== null) ? name.trim() : current.name;
+        const updatedLat = (lat !== undefined && lat !== null) ? parseFloat(lat) : current.latitude;
+        const updatedLng = (lng !== undefined && lng !== null) ? parseFloat(lng) : current.longitude;
+        if (!validateCoordinate(updatedLat, updatedLng)) {
+            return res.status(400).json({ error: "พิกัดสนามไม่ถูกต้อง" });
+        }
+
+        const updatedCapacity = capacity !== undefined ? Math.max(1, parseInt(capacity, 10)) : (current.capacity || 1);
+        const updatedType = type !== undefined ? type : current.type;
+        const updatedFee = fee_amount !== undefined ? Number(fee_amount) : (Number(current.fee_amount) || 0);
+        const updatedFeeReq = is_fee_required !== undefined ? Boolean(is_fee_required) : Boolean(current.is_fee_required);
+        const updatedFeeStructure = fee_structure !== undefined ? (fee_structure ? JSON.stringify(fee_structure) : null) : current.fee_structure;
+        const updatedPricingUnit = pricing_unit || current.pricing_unit || 'per_hour';
+
+        let updatedIcon = current.icon;
+        if (type !== undefined && type !== current.type) {
+            const [sportTypes] = await pool.query("SELECT icon FROM sport_types WHERE name_en = ?", [type]);
+            if (sportTypes && sportTypes.length > 0) {
+                updatedIcon = sportTypes[0].icon;
+            }
+        }
+
+        await pool.query(`
+            UPDATE courts 
+            SET name = ?, latitude = ?, longitude = ?, capacity = ?, type = ?, icon = ?, fee_amount = ?, is_fee_required = ?, fee_structure = ?, pricing_unit = ?
+            WHERE id = ?
+        `, [updatedName, updatedLat, updatedLng, updatedCapacity, updatedType, updatedIcon, updatedFee, updatedFeeReq, updatedFeeStructure, updatedPricingUnit, id]);
 
         await logAudit(req, {
             action: 'UPDATE_COURT',
             target_type: 'court',
             target_id: id,
-            details: { name: name.trim(), lat, lng }
+            details: {
+                name: updatedName,
+                lat: updatedLat,
+                lng: updatedLng,
+                capacity: updatedCapacity,
+                type: updatedType,
+                fee_amount: updatedFee,
+                is_fee_required: updatedFeeReq,
+                pricing_unit: updatedPricingUnit
+            }
         });
 
-        res.json({ success: true });
+        res.json({ 
+            success: true, 
+            court: { 
+                id, 
+                name: updatedName, 
+                capacity: updatedCapacity, 
+                type: updatedType,
+                latitude: updatedLat,
+                longitude: updatedLng,
+                fee_amount: updatedFee,
+                is_fee_required: updatedFeeReq,
+                fee_structure: updatedFeeStructure,
+                pricing_unit: updatedPricingUnit
+            } 
+        });
     } catch (err) {
         console.error('Error updating court:', err);
         res.status(500).json({ error: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล" });
     }
 };
+
 
 exports.deleteCourt = async (req, res) => {
     try {
@@ -276,6 +337,140 @@ exports.deleteTimeslot = async (req, res) => {
     }
 };
 
+exports.updateTimeslot = async (req, res) => {
+    try {
+        const { id, start_time, end_time } = req.body;
+        if (!id || !start_time || !end_time) return res.status(400).json({ error: "ข้อมูลไม่ครบถ้วน" });
+
+        await pool.query(
+            "UPDATE court_timeslots SET start_time = ?, end_time = ? WHERE id = ?",
+            [start_time, end_time, id]
+        );
+
+        await logAudit(req, {
+            action: 'UPDATE_TIMESLOT',
+            target_type: 'timeslot',
+            target_id: id,
+            details: { start_time, end_time }
+        });
+
+        res.json({ success: true, message: "แก้ไขช่วงเวลาเรียบร้อยแล้ว" });
+    } catch (err) {
+        console.error('Error updating timeslot:', err);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการแก้ไขช่วงเวลา" });
+    }
+};
+
+exports.bulkCreateTimeslots = async (req, res) => {
+    try {
+        const { court_ids, slots } = req.body;
+        const targetCourtIds = Array.isArray(court_ids) ? court_ids : [req.body.court_id].filter(Boolean);
+        if (targetCourtIds.length === 0 || !Array.isArray(slots) || slots.length === 0) {
+            return res.status(400).json({ error: "กรุณาระบุสนามและช่วงเวลาที่ต้องการสร้าง" });
+        }
+
+        let insertedCount = 0;
+        for (const court_id of targetCourtIds) {
+            for (const slot of slots) {
+                if (!slot.start_time || !slot.end_time) continue;
+                const [exists] = await pool.query(
+                    "SELECT id FROM court_timeslots WHERE court_id = ? AND start_time = ? AND end_time = ?",
+                    [court_id, slot.start_time, slot.end_time]
+                );
+                if (exists.length === 0) {
+                    await pool.query(
+                        "INSERT INTO court_timeslots (court_id, start_time, end_time) VALUES (?, ?, ?)",
+                        [court_id, slot.start_time, slot.end_time]
+                    );
+                    insertedCount++;
+                }
+            }
+        }
+
+        await logAudit(req, {
+            action: 'BULK_CREATE_TIMESLOTS',
+            target_type: 'timeslot',
+            details: { courts: targetCourtIds, count: insertedCount }
+        });
+
+        res.json({ success: true, count: insertedCount, message: `สร้างช่วงเวลาสำเร็จ ${insertedCount} รายการ` });
+    } catch (err) {
+        console.error('Error bulk creating timeslots:', err);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการสร้างช่วงเวลาอัตโนมัติ" });
+    }
+};
+
+exports.copyTimeslots = async (req, res) => {
+    try {
+        const { source_court_id, target_court_id, replace_existing } = req.body;
+        if (!source_court_id || !target_court_id) {
+            return res.status(400).json({ error: "กรุณาระบุสนามต้นทางและสนามปลายทาง" });
+        }
+        if (source_court_id === target_court_id) {
+            return res.status(400).json({ error: "สนามต้นทางและปลายทางต้องไม่เป็นสนามเดียวกัน" });
+        }
+
+        const [sourceSlots] = await pool.query(
+            "SELECT start_time, end_time FROM court_timeslots WHERE court_id = ? ORDER BY start_time ASC",
+            [source_court_id]
+        );
+
+        if (sourceSlots.length === 0) {
+            return res.status(400).json({ error: "สนามต้นทางไม่มีช่วงเวลาเปิดให้บริการ" });
+        }
+
+        if (replace_existing) {
+            await pool.query("DELETE FROM court_timeslots WHERE court_id = ?", [target_court_id]);
+        }
+
+        let copied = 0;
+        for (const s of sourceSlots) {
+            const [exists] = await pool.query(
+                "SELECT id FROM court_timeslots WHERE court_id = ? AND start_time = ? AND end_time = ?",
+                [target_court_id, s.start_time, s.end_time]
+            );
+            if (exists.length === 0) {
+                await pool.query(
+                    "INSERT INTO court_timeslots (court_id, start_time, end_time) VALUES (?, ?, ?)",
+                    [target_court_id, s.start_time, s.end_time]
+                );
+                copied++;
+            }
+        }
+
+        await logAudit(req, {
+            action: 'COPY_TIMESLOTS',
+            target_type: 'timeslot',
+            details: { source_court_id, target_court_id, copied_count: copied }
+        });
+
+        res.json({ success: true, count: copied, message: `คัดลอกช่วงเวลาสำเร็จ ${copied} รายการ` });
+    } catch (err) {
+        console.error('Error copying timeslots:', err);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการคัดลอกช่วงเวลา" });
+    }
+};
+
+exports.clearCourtTimeslots = async (req, res) => {
+    try {
+        const { court_id } = req.body;
+        if (!court_id) return res.status(400).json({ error: "กรุณาระบุสนามที่ต้องการลบช่วงเวลา" });
+
+        await pool.query("DELETE FROM court_timeslots WHERE court_id = ?", [court_id]);
+
+        await logAudit(req, {
+            action: 'CLEAR_COURT_TIMESLOTS',
+            target_type: 'timeslot',
+            details: { court_id }
+        });
+
+        res.json({ success: true, message: `ลบช่วงเวลาทั้งหมดของสนามเรียบร้อยแล้ว` });
+    } catch (err) {
+        console.error('Error clearing court timeslots:', err);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการลบช่วงเวลาทั้งหมด" });
+    }
+};
+
 // Manage Admins & Roles
 exports.getAdmins = async (req, res) => {
     try {
@@ -349,6 +544,98 @@ exports.deleteAdmin = async (req, res) => {
     }
 };
 
+exports.updateAdmin = async (req, res) => {
+    try {
+        const { id, name, phone, role, password } = req.body;
+        if (!id) return res.status(400).json({ error: "กรุณาระบุ ID ผู้ดูแลระบบ" });
+
+        const currentUserId = req.session?.user?.id;
+        const allowedRoles = ['super_admin', 'admin', 'staff', 'viewer'];
+        const targetRole = allowedRoles.includes(role) ? role : undefined;
+
+        // Prevent demoting yourself
+        if (parseInt(id, 10) === currentUserId && targetRole && targetRole !== req.session?.user?.role) {
+            return res.status(403).json({ error: "ไม่สามารถเปลี่ยน Role ของตัวเองได้" });
+        }
+
+        const [existing] = await pool.query("SELECT id, name, role FROM users WHERE id = ?", [id]);
+        if (!existing.length) return res.status(404).json({ error: "ไม่พบผู้ดูแลระบบ" });
+
+        const updates = [];
+        const params = [];
+        if (name) { updates.push('name = ?'); params.push(name.trim()); }
+        if (phone !== undefined) { updates.push('phone = ?'); params.push(phone ? phone.trim() : ''); }
+        if (targetRole) { updates.push('role = ?'); params.push(targetRole); }
+        if (password && password.length >= 6) {
+            const hashed = await bcrypt.hash(password, 10);
+            updates.push('password = ?');
+            params.push(hashed);
+        }
+
+        if (updates.length === 0) return res.status(400).json({ error: "ไม่มีข้อมูลที่ต้องอัปเดต" });
+
+        params.push(id);
+        await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+
+        await logAudit(req, {
+            action: 'UPDATE_ADMIN_USER',
+            target_type: 'user',
+            target_id: id,
+            details: { name, role: targetRole, phone }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error updating admin:', err);
+        res.status(500).json({ error: "เกิดข้อผิดพลาดในการแก้ไขข้อมูลแอดมิน" });
+    }
+};
+
+
+// Public Settings (accessible by all users and guests for Manual and UI display)
+exports.getPublicSettings = async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            "SELECT setting_key, setting_value, label_th FROM app_settings WHERE setting_key IN (" +
+            "'pre_confirm_open_minutes', 'pre_confirm_close_minutes', 'checkin_early_minutes', " +
+            "'checkin_baseline_grace_minutes', 'checkin_grace_minutes', 'gps_radius_meters', " +
+            "'max_active_bookings_per_user', 'max_advance_booking_days', 'cancellation_lead_minutes')"
+        );
+        const settingsMap = {};
+        for (const r of rows) {
+            settingsMap[r.setting_key] = isNaN(Number(r.setting_value)) ? r.setting_value : Number(r.setting_value);
+        }
+        res.json({
+            settings: {
+                pre_confirm_open_minutes: settingsMap.pre_confirm_open_minutes ?? 10,
+                pre_confirm_close_minutes: settingsMap.pre_confirm_close_minutes ?? 5,
+                checkin_early_minutes: settingsMap.checkin_early_minutes ?? 10,
+                checkin_baseline_grace_minutes: settingsMap.checkin_baseline_grace_minutes ?? 5,
+                checkin_grace_minutes: settingsMap.checkin_grace_minutes ?? 10,
+                gps_radius_meters: settingsMap.gps_radius_meters ?? 30,
+                max_active_bookings_per_user: settingsMap.max_active_bookings_per_user ?? 2,
+                max_advance_booking_days: settingsMap.max_advance_booking_days ?? 7,
+                cancellation_lead_minutes: settingsMap.cancellation_lead_minutes ?? 30
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching public settings:', err);
+        res.json({
+            settings: {
+                pre_confirm_open_minutes: 10,
+                pre_confirm_close_minutes: 5,
+                checkin_early_minutes: 10,
+                checkin_baseline_grace_minutes: 5,
+                checkin_grace_minutes: 10,
+                gps_radius_meters: 30,
+                max_active_bookings_per_user: 2,
+                max_advance_booking_days: 7,
+                cancellation_lead_minutes: 30
+            }
+        });
+    }
+};
+
 // Manage Settings
 exports.getSettings = async (req, res) => {
     try {
@@ -378,6 +665,9 @@ exports.updateSettings = async (req, res) => {
             details: settings
         });
 
+        // Invalidate in-memory settings cache for immediate freshness
+        invalidateSettingCache();
+
         res.json({ success: true });
     } catch (err) {
         console.error('Error updating settings:', err);
@@ -388,10 +678,22 @@ exports.updateSettings = async (req, res) => {
 // Manage Audit Logs
 exports.getAuditLogs = async (req, res) => {
     try {
-        const { limit = 100, action, target_type, search } = req.query;
+        const { limit = 100, action, target_type, search, date, start_date, end_date } = req.query;
         let sql = `SELECT * FROM audit_logs WHERE 1=1`;
         const params = [];
 
+        if (date) {
+            sql += ` AND DATE(created_at) = ?`;
+            params.push(date);
+        }
+        if (start_date) {
+            sql += ` AND DATE(created_at) >= ?`;
+            params.push(start_date);
+        }
+        if (end_date) {
+            sql += ` AND DATE(created_at) <= ?`;
+            params.push(end_date);
+        }
         if (action) {
             sql += ` AND action = ?`;
             params.push(action);
@@ -407,7 +709,7 @@ exports.getAuditLogs = async (req, res) => {
         }
 
         sql += ` ORDER BY created_at DESC LIMIT ?`;
-        params.push(Math.min(parseInt(limit, 10) || 100, 300));
+        params.push(Math.min(parseInt(limit, 10) || 100, 500));
 
         const [logs] = await pool.query(sql, params);
         res.json({ logs });

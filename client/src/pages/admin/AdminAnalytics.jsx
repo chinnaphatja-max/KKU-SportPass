@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BarChart2, Users, Cookie, Activity, CalendarCheck, CheckCircle2, Flame, Moon, Sparkles, Filter, Clock } from 'lucide-react';
+import { BarChart2, Users, Cookie, Activity, CalendarCheck, CheckCircle2, Flame, Moon, Sparkles, Filter, Clock, Target, Megaphone } from 'lucide-react';
 import axios from 'axios';
 import { useLanguage } from '../../context/LanguageContext';
+
 
 export default function AdminAnalytics() {
   const { t } = useLanguage();
@@ -103,24 +104,35 @@ export default function AdminAnalytics() {
           <button
             type="button"
             onClick={() => setActiveTab('heatmap')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'heatmap'
                 ? 'bg-white text-brand-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            🔥 Heatmap ความหนาแน่น
+            <Flame size={14} className={activeTab === 'heatmap' ? 'text-amber-500' : 'text-gray-400'} /> Heatmap ความหนาแน่น
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'overview'
                 ? 'bg-white text-brand-600 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            📊 ภาพรวมระบบ
+            <BarChart2 size={14} className={activeTab === 'overview' ? 'text-brand-600' : 'text-gray-400'} /> ภาพรวมระบบ
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('marketing')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'marketing'
+                ? 'bg-white text-brand-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Megaphone size={14} className={activeTab === 'marketing' ? 'text-brand-600' : 'text-gray-400'} /> Marketing
           </button>
         </div>
       </div>
@@ -402,6 +414,63 @@ export default function AdminAnalytics() {
               ) : (
                 <div className="text-xs text-center py-12 text-gray-400">ยังไม่มีข้อมูลการเข้าชม</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: MARKETING */}
+      {activeTab === 'marketing' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Cookie Consent Donut */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+              <h3 className="font-extrabold text-lg flex items-center gap-2 text-gray-900 mb-5">
+                <Cookie style={{ color: '#fe6e00' }} /> สถิติการอนุญาตโฆษณา
+              </h3>
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path strokeWidth="3" stroke="rgba(254,110,0,0.1)" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path
+                      strokeDasharray={`${acceptanceRate}, 100`}
+                      strokeWidth="3" strokeLinecap="round" stroke="#fe6e00" fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center">
+                    <span className="text-3xl font-black text-gray-900">{acceptanceRate}%</span>
+                    <span className="text-xs font-bold text-gray-500">อนุญาตโฆษณา</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6 mt-6 w-full">
+                  <div className="text-center p-4 rounded-2xl bg-gray-50">
+                    <div className="text-xs font-semibold text-gray-500 mb-1">ยอมรับ (Session)</div>
+                    <div className="text-2xl font-black text-[#fe6e00]">{analytics.accepted.toLocaleString()}</div>
+                  </div>
+                  <div className="text-center p-4 rounded-2xl bg-gray-50">
+                    <div className="text-xs font-semibold text-gray-500 mb-1">ปฏิเสธ (Session)</div>
+                    <div className="text-2xl font-black text-gray-800">{analytics.declined.toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Info note */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+              <h3 className="font-extrabold text-lg text-gray-900 mb-3 flex items-center justify-between">
+                ข้อควรรู้
+                <span className="text-xs font-bold px-2 py-1 rounded-lg bg-green-100 text-green-700">REAL TIME</span>
+              </h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                ขณะนี้ระบบจัดเก็บเพียง <strong>Consent การยินยอมใช้คุกกี้เพื่อการโฆษณา</strong> จากผู้ใช้งานจริงเท่านั้น
+                สถิติจริง เช่น Conversion, CPA, Click Through Rate จะต้อง Integrate ร่วมกับ
+                <strong> Facebook Pixel</strong> หรือ <strong>Google Ads Tag</strong>
+              </p>
+              <div className="mt-4 p-4 rounded-2xl bg-gray-50 flex gap-3">
+                <Target size={20} style={{ color: '#fe6e00' }} className="shrink-0 mt-0.5" />
+                <p className="text-sm font-semibold text-gray-800">หากต้องการใช้งาน Marketing Tool เต็มรูปแบบ โปรดเพิ่มแท็กโฆษณาใน Source Code</p>
+              </div>
             </div>
           </div>
         </div>

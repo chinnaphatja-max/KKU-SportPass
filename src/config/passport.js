@@ -21,19 +21,43 @@ passport.deserializeUser((user, done) => {
     done(null, user);
 });
 
-// Helper function to find or create user in DB
+function resolveUserGroup(email) {
+    if (!email || typeof email !== 'string') return 'external';
+    const domain = email.trim().toLowerCase().split('@')[1] || '';
+    if (domain === 'kkumail.com') return 'student';
+    if (domain === 'kku.ac.th') return 'staff';
+    return 'external';
+}
+
+// Helper function to find or create user in DB, and synchronize role on repeated logins
 const findOrCreateUser = async (email, name, role) => {
     try {
         const cleanEmail = email.trim().toLowerCase();
+        const expectedRole = role || resolveRole(cleanEmail);
+        const expectedUserType = resolveUserGroup(cleanEmail);
         const [users] = await pool.query("SELECT * FROM users WHERE email = ?", [cleanEmail]);
         let user = users[0];
         if (!user) {
-            const assignedRole = role || resolveRole(cleanEmail);
             const [result] = await pool.query(
-                "INSERT INTO users (name, email, role) VALUES (?, ?, ?)",
-                [name, cleanEmail, assignedRole]
+                "INSERT INTO users (name, email, role, user_type) VALUES (?, ?, ?, ?)",
+                [name, cleanEmail, expectedRole, expectedUserType]
             );
-            user = { id: result.insertId, name, email: cleanEmail, role: assignedRole };
+            user = { id: result.insertId, name, email: cleanEmail, role: expectedRole, user_type: expectedUserType };
+        } else {
+            // Update role on repeat OAuth login if user email is added to ADMIN_EMAILS
+            const needsRoleUpdate = (expectedRole === 'admin' && user.role !== 'super_admin' && user.role !== 'admin');
+            const needsNameUpdate = (!user.name || user.name === 'Google User' || user.name === 'KKU SSONext User') && name && name !== 'Google User' && name !== 'KKU SSONext User';
+
+            if (needsRoleUpdate || needsNameUpdate) {
+                const newRole = needsRoleUpdate ? expectedRole : user.role;
+                const newName = needsNameUpdate ? name : user.name;
+                await pool.query(
+                    "UPDATE users SET role = ?, name = ? WHERE id = ?",
+                    [newRole, newName, user.id]
+                );
+                user.role = newRole;
+                user.name = newName;
+            }
         }
         return user;
     } catch (err) {
@@ -46,7 +70,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: '/api/auth/google/callback',
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback',
         proxy: true
     }, async (accessToken, refreshToken, profile, done) => {
         try {

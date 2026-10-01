@@ -23,6 +23,19 @@ app.set('trust proxy', 1);
 // Structured logger & request ID tracking
 app.use(structuredLogger);
 
+// Anti-Clickjacking & Window Isolation Headers
+app.use((req, res, next) => {
+    // Prevent rendering inside external iframes / frames (Anti-Clickjacking)
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    // Prevent MIME-sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Protect referer leak to third-party sites
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    // Isolate browsing context so external tabs/windows cannot inspect or tamper via window.opener
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    next();
+});
+
 // CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
@@ -91,6 +104,10 @@ app.get('*', (req, res) => {
     });
 });
 
+const { initPaymentTimeoutCron } = require('./src/cron/paymentTimeoutWorker');
+
 app.listen(PORT, () => {
     console.log(`⚡ [Node.js Server] Running at http://localhost:${PORT}`);
+    // Start background 15-minute payment timeout monitor
+    initPaymentTimeoutCron();
 });

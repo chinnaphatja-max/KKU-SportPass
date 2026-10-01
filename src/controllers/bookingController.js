@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const pool = require('../config/db');
-const { applyBookingTimeouts, parseQrCourtId, distanceMeters, appSettingInt, makeQrPayload, checkAndPromoteWaitlist } = require('../utils/helpers');
+const { applyBookingTimeouts, parseQrCourtId, distanceMeters, appSettingInt, makeQrPayload, makeStaticQrPayload, checkAndPromoteWaitlist } = require('../utils/helpers');
 const { logAudit } = require('../utils/auditLogger');
 
 function generateBookingCode() {
@@ -41,13 +41,24 @@ exports.bookCourt = async (req, res) => {
         const endTime = `${endHours}:${String(minutes).padStart(2, '0')}:00`;
         const startTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
 
-        // Policy 1: Prevent past date or past time bookings
+        // Policy 1: Prevent past date or expired time bookings
         if (date < todayStr) {
             return res.status(400).json({ error: "ไม่สามารถจองวันที่ผ่านมาแล้วได้" });
         }
         if (date === todayStr && startTime <= currentTimeStr) {
-            return res.status(400).json({ error: "ไม่สามารถจองช่วงเวลาที่ผ่านมาแล้วได้" });
+            if (currentTimeStr >= endTime) {
+                return res.status(400).json({ error: "ไม่สามารถจองช่วงเวลาที่สิ้นสุดไปแล้วได้" });
+            }
+            // If ongoing slot (Walk-in): check if waitlist exists
+            const [wlCheck] = await pool.query(
+                "SELECT COUNT(*) as cnt FROM booking_waitlists WHERE court_id = ? AND booking_date = ? AND start_time = ? AND status = 'WAITING'",
+                [court_id, date, startTime]
+            );
+            if (wlCheck[0]?.cnt > 0) {
+                return res.status(400).json({ error: "รอบเวลานี้มีผู้รอคิวในระบบ (Waitlist) อยู่ สิทธิ์จะมอบให้คิวรอก่อน" });
+            }
         }
+
 
         // Policy 2: Max advance booking window
         const maxAdvanceDays = await appSettingInt('max_advance_booking_days', 7);
@@ -193,25 +204,34 @@ exports.preConfirm = async (req, res) => {
 
         const [windowCheck] = await pool.query(`
             SELECT 
-                EXTRACT(EPOCH FROM (CAST(? || ' ' || ? AS TIMESTAMP) - CURRENT_TIMESTAMP))/60 as minutes_until_start
+                EXTRACT(EPOCH FROM (((? || ' ' || ?)::timestamp AT TIME ZONE 'Asia/Bangkok') - CURRENT_TIMESTAMP))/60 as minutes_until_start
         `, [booking.booking_date, booking.start_time]);
 
         const minutesUntilStart = parseFloat(windowCheck[0]?.minutes_until_start);
 
         if (isNaN(minutesUntilStart) || minutesUntilStart > openMinutes) {
             return res.status(400).json({ 
-                error: `ยังไม่ถึงช่วงเวลายืนยันสิทธิ์ (เปิดให้ยืนยันก่อนเริ่มรอบการใช้งาน ${openMinutes} นาที)` 
+                error: `ยังไม่ถึงช่วงเวลายืนยันสิทธิ์ล่วงหน้า (เปิดให้กดยืนยันขอผ่อนผันเวลาในช่วง ${openMinutes} ถึง ${closeMinutes} นาทีก่อนเริ่มรอบ)` 
+            });
+        }
+
+        if (minutesUntilStart <= 0) {
+            return res.status(400).json({ 
+                error: `รอบเวลาการใช้งานนี้เริ่มต้นแล้ว กรุณาสแกน QR Code หน้าสนามเพื่อเช็คอินเข้าใช้งาน` 
             });
         }
 
         if (minutesUntilStart < closeMinutes) {
             return res.status(400).json({ 
-                error: `หมดเวลายืนยันสิทธิ์ล่วงหน้าแล้ว (ต้องยืนยันก่อนถึงเวลาอย่างน้อย ${closeMinutes} นาที)` 
+                error: `หมดช่วงเวลายืนยันขอผ่อนผันเวลาล่วงหน้าแล้ว (ปิดก่อนเริ่ม ${closeMinutes} นาที) แต่คุณยังสามารถมารายงานตัวเช็คอินที่สนามตามเวลาเริ่มรอบปกติ (T = 0) ได้` 
             });
         }
 
         await pool.query("UPDATE bookings SET status = 'PRE_CONFIRMED', pre_confirmed_at = CURRENT_TIMESTAMP WHERE id = ?", [booking_id]);
-        res.json({ success: true, message: "ยืนยันสิทธิ์การเข้าใช้งานเรียบร้อยแล้ว" });
+        res.json({ 
+            success: true, 
+            message: "ยืนยันสิทธิ์ขอผ่อนผันเวลาเรียบร้อยแล้ว (คุณสามารถเดินทางมาเช็คอินสายได้ไม่เกินกำหนดระยะผ่อนผันของระบบ)" 
+        });
     } catch (err) {
         console.error('Pre-confirm Error:', err);
         res.status(500).json({ error: "Internal server error" });
@@ -244,11 +264,17 @@ exports.checkIn = async (req, res) => {
 
         const court = courts[0];
 
-        // GPS Check if coordinates provided
+        // GPS Verification: Since court poster QR codes are static (do not rotate),
+        // on-site GPS verification is the primary safeguard against off-site / proxy check-in.
         let distMeters = null;
-        if (lat && lng) {
+        if (court.latitude && court.longitude) {
+            if (!lat || !lng) {
+                return res.status(400).json({
+                    error: "จำเป็นต้องเปิดและอนุญาตสิทธิ์เข้าถึงตำแหน่ง GPS เพื่อยืนยันว่าท่านอยู่ที่หน้าสนามจริง (ป้าย QR Code ประจำสนามต้องตรวจวัดระยะทางผ่าน GPS)"
+                });
+            }
             distMeters = Math.round(distanceMeters(parseFloat(lat), parseFloat(lng), parseFloat(court.latitude), parseFloat(court.longitude)));
-            const maxRadius = await appSettingInt('gps_radius_meters', 30);
+            const maxRadius = await appSettingInt('gps_radius_meters', 50);
 
             if (distMeters > maxRadius) {
                 return res.status(400).json({
@@ -258,27 +284,30 @@ exports.checkIn = async (req, res) => {
         }
 
         const checkinGraceMinutes = await appSettingInt('checkin_grace_minutes', 10);
-        // Allow check-in from 10 minutes before start_time up to checkin_grace_minutes after start_time
-        const earlyCheckinMinutes = 10;
+        const checkinBaselineGraceMinutes = await appSettingInt('checkin_baseline_grace_minutes', 5);
+        const earlyCheckinMinutes = await appSettingInt('checkin_early_minutes', 10);
 
-        // Query eligible booking for user today
-        const today = new Date().toISOString().split('T')[0];
+        // Query eligible booking for user today: allows both PRE_CONFIRMED and PENDING
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
         const [bookings] = await pool.query(`
             SELECT *,
-                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - CAST(booking_date || ' ' || start_time AS TIMESTAMP)))/60 as minutes_since_start
+                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - (((booking_date || ' ' || start_time)::timestamp AT TIME ZONE 'Asia/Bangkok'))))/60 as minutes_since_start
             FROM bookings
-            WHERE user_id = ? AND court_id = ? AND booking_date = ? AND status = 'PRE_CONFIRMED'
+            WHERE user_id = ? AND court_id = ? AND booking_date = ? AND status IN ('PRE_CONFIRMED', 'PENDING')
             ORDER BY start_time ASC
         `, [userId, courtId, today]);
 
         if (bookings.length === 0) {
-            return res.status(404).json({ error: "ไม่พบรายการจองที่ได้รับการยืนยันสิทธิ์สำหรับสนามนี้ในวันนี้" });
+            return res.status(404).json({ error: "ไม่พบรายการจองที่สามารถเช็คอินได้สำหรับสนามนี้ในวันนี้" });
         }
 
-        // Find the booking that matches the valid check-in time window
+        // Find the booking that matches the valid check-in time window:
+        // - PRE_CONFIRMED: from -earlyCheckinMinutes up to +checkinGraceMinutes (extended grace for traffic/delays)
+        // - PENDING: from -earlyCheckinMinutes up to +checkinBaselineGraceMinutes (baseline grace window, e.g. T+5m)
         const validBooking = bookings.find(b => {
             const m = parseFloat(b.minutes_since_start);
-            return m >= -earlyCheckinMinutes && m <= checkinGraceMinutes;
+            const maxGrace = b.status === 'PRE_CONFIRMED' ? checkinGraceMinutes : checkinBaselineGraceMinutes;
+            return m >= -earlyCheckinMinutes && m <= maxGrace;
         });
 
         if (!validBooking) {
@@ -286,14 +315,19 @@ exports.checkIn = async (req, res) => {
             const m = parseFloat(firstBooking.minutes_since_start);
             if (m < -earlyCheckinMinutes) {
                 return res.status(400).json({
-                    error: `ยังไม่ถึงเวลาเช็คอินของรอบนี้ (สามารถเช็คอินได้ล่วงหน้าไม่เกิน ${earlyCheckinMinutes} นาทีก่อนเริ่มรอบ)`
+                    error: `ยังไม่ถึงเวลาเช็คอินของรอบนี้ (สามารถเช็คอินล่วงหน้าได้ไม่เกิน ${earlyCheckinMinutes} นาทีก่อนเริ่มรอบ)`
+                });
+            } else if (firstBooking.status === 'PENDING') {
+                return res.status(400).json({
+                    error: `เลยกำหนดเวลาเช็คอินพื้นฐานของรอบนี้แล้ว (อนุญาตเช็คอินได้ไม่เกิน ${checkinBaselineGraceMinutes} นาทีหลังเริ่มรอบ) หากต้องการผ่อนผันเวลาสายเพิ่มเป็น ${checkinGraceMinutes} นาที สามารถกดยืนยันขอผ่อนผันล่วงหน้าได้`
                 });
             } else {
                 return res.status(400).json({
-                    error: `เลยกำหนดเวลาเช็คอินของรอบนี้แล้ว (อนุญาตสายได้ไม่เกิน ${checkinGraceMinutes} นาที)`
+                    error: `เลยกำหนดเวลาผ่อนผันเช็คอินของรอบนี้แล้ว (อนุญาตสายได้ไม่เกิน ${checkinGraceMinutes} นาทีหลังเริ่มรอบ)`
                 });
             }
         }
+
 
         await pool.query(`
             UPDATE bookings
@@ -314,8 +348,9 @@ exports.getQrToken = async (req, res) => {
         if (!court_id) {
             return res.status(400).json({ error: "กรุณาระบุ court_id" });
         }
-        const qrPayload = makeQrPayload(court_id);
-        res.json({ court_id, qr_payload: qrPayload, generated_at: new Date().toISOString() });
+        // Court poster QR code is static (never rotates) - primary verification relies on GPS on-site
+        const qrPayload = makeStaticQrPayload(court_id);
+        res.json({ court_id, qr_payload: qrPayload, type: 'static_court_poster', generated_at: new Date().toISOString() });
     } catch (err) {
         console.error('Get QR Token Error:', err);
         res.status(500).json({ error: "Internal server error" });
@@ -356,7 +391,7 @@ exports.cancelBooking = async (req, res) => {
         const leadMinutes = await appSettingInt('cancellation_lead_minutes', 30);
         const [timeCheck] = await pool.query(`
             SELECT CASE 
-                WHEN CURRENT_TIMESTAMP > (CAST(? || ' ' || ? AS TIMESTAMP) - (? || ' minutes')::interval)
+                WHEN CURRENT_TIMESTAMP > ((((? || ' ' || ?)::timestamp AT TIME ZONE 'Asia/Bangkok')) - (? || ' minutes')::interval)
                 THEN 1 ELSE 0 
             END as is_too_late
         `, [booking.booking_date, booking.start_time, leadMinutes]);
@@ -418,13 +453,50 @@ exports.cancelBooking = async (req, res) => {
     }
 };
 
-// --- Staff / Admin Operational Endpoints ---
 exports.getAdminBookings = async (req, res) => {
     try {
         await applyBookingTimeouts();
         const { date, court_id, status, search } = req.query;
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = req.query.limit === 'all' 
+            ? 500 
+            : Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = (page - 1) * limit;
 
-        let sql = `
+        let whereClause = " WHERE 1=1";
+        const params = [];
+
+        if (date) {
+            whereClause += ` AND b.booking_date = ?`;
+            params.push(date);
+        }
+        if (court_id) {
+            whereClause += ` AND b.court_id = ?`;
+            params.push(court_id);
+        }
+        if (status) {
+            whereClause += ` AND b.status = ?`;
+            params.push(status);
+        }
+        if (search) {
+            whereClause += ` AND (u.name ILIKE ? OR u.email ILIKE ? OR b.booking_code ILIKE ?)`;
+            const q = `%${search.trim()}%`;
+            params.push(q, q, q);
+        }
+
+        // Count total matching bookings
+        const countSql = `
+            SELECT COUNT(*) as total
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
+            JOIN courts c ON b.court_id = c.id
+            ${whereClause}
+        `;
+        const [countRows] = await pool.query(countSql, params);
+        const total = parseInt(countRows[0]?.total || 0, 10);
+
+        // Paginated rows query
+        const dataSql = `
             SELECT b.*, 
                    u.name as user_name, u.email as user_email, u.phone as user_phone,
                    c.name as court_name, c.type as court_type,
@@ -433,35 +505,131 @@ exports.getAdminBookings = async (req, res) => {
             JOIN users u ON b.user_id = u.id
             JOIN courts c ON b.court_id = c.id
             LEFT JOIN users staff ON b.manual_override_by = staff.id
-            WHERE 1=1
+            ${whereClause}
+            ORDER BY b.booking_date DESC, b.start_time ASC, b.id DESC 
+            LIMIT ? OFFSET ?
         `;
+        const dataParams = [...params, limit, offset];
+
+        const [bookings] = await pool.query(dataSql, dataParams);
+        const totalPages = Math.ceil(total / limit) || 1;
+
+        res.json({ 
+            bookings,
+            pagination: {
+                total,
+                page,
+                limit,
+                total_pages: totalPages,
+                has_next: page < totalPages,
+                has_prev: page > 1
+            }
+        });
+    } catch (err) {
+        console.error('Get Admin Bookings Error:', err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+// Admin / Staff: Export Bookings to CSV (UTF-8 BOM for Excel support)
+exports.exportBookingsCsv = async (req, res) => {
+    try {
+        const { date, court_id, status, search } = req.query;
+
+        let whereClause = " WHERE 1=1";
         const params = [];
 
         if (date) {
-            sql += ` AND b.booking_date = ?`;
+            whereClause += ` AND b.booking_date = ?`;
             params.push(date);
         }
         if (court_id) {
-            sql += ` AND b.court_id = ?`;
+            whereClause += ` AND b.court_id = ?`;
             params.push(court_id);
         }
         if (status) {
-            sql += ` AND b.status = ?`;
+            whereClause += ` AND b.status = ?`;
             params.push(status);
         }
         if (search) {
-            sql += ` AND (u.name ILIKE ? OR u.email ILIKE ? OR b.booking_code ILIKE ?)`;
+            whereClause += ` AND (u.name ILIKE ? OR u.email ILIKE ? OR b.booking_code ILIKE ?)`;
             const q = `%${search.trim()}%`;
             params.push(q, q, q);
         }
 
-        sql += ` ORDER BY b.booking_date DESC, b.start_time ASC, b.id DESC LIMIT 150`;
+        const dataSql = `
+            SELECT b.*, 
+                   u.name as user_name, u.email as user_email, u.phone as user_phone,
+                   c.name as court_name, c.type as court_type,
+                   staff.name as manual_override_name
+            FROM bookings b
+            JOIN users u ON b.user_id = u.id
+            JOIN courts c ON b.court_id = c.id
+            LEFT JOIN users staff ON b.manual_override_by = staff.id
+            ${whereClause}
+            ORDER BY b.booking_date DESC, b.start_time ASC, b.id DESC
+            LIMIT 5000
+        `;
 
-        const [bookings] = await pool.query(sql, params);
-        res.json({ bookings });
+        const [bookings] = await pool.query(dataSql, params);
+
+        const STATUS_TH = {
+            PENDING: 'รอยืนยันสิทธิ์',
+            PRE_CONFIRMED: 'ยืนยันแล้ว-รอเช็คอิน',
+            CHECKED_IN: 'เช็คอินสำเร็จ',
+            CANCELLED: 'ยกเลิกแล้ว',
+            MISSED: 'ขาดการเช็คอิน'
+        };
+
+        const escapeCsv = (val) => {
+            if (val === null || val === undefined) return '""';
+            const str = String(val).replace(/"/g, '""');
+            return `"${str}"`;
+        };
+
+        const headers = [
+            'รหัสการจอง',
+            'วันที่จอง',
+            'เวลาเริ่ม',
+            'เวลาสิ้นสุด',
+            'ชื่อสนาม',
+            'ประเภทกีฬา',
+            'ชื่อผู้จอง',
+            'อีเมล',
+            'เบอร์โทร',
+            'สถานะ',
+            'วันที่สร้าง',
+            'หมายเหตุแทรกแซง'
+        ];
+
+        const rows = [headers.map(escapeCsv).join(',')];
+
+        for (const b of bookings) {
+            rows.push([
+                escapeCsv(b.booking_code || b.id),
+                escapeCsv(b.booking_date),
+                escapeCsv(b.start_time),
+                escapeCsv(b.end_time),
+                escapeCsv(b.court_name),
+                escapeCsv(b.court_type),
+                escapeCsv(b.user_name),
+                escapeCsv(b.user_email),
+                escapeCsv(b.user_phone),
+                escapeCsv(STATUS_TH[b.status] || b.status),
+                escapeCsv(b.created_at ? new Date(b.created_at).toISOString() : ''),
+                escapeCsv(b.manual_override_reason || '')
+            ].join(','));
+        }
+
+        const csvContent = '\uFEFF' + rows.join('\r\n');
+        const filename = `bookings_${date || 'all'}_${Date.now()}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.status(200).send(csvContent);
     } catch (err) {
-        console.error('Get Admin Bookings Error:', err);
-        res.status(500).json({ error: "Internal server error" });
+        console.error('Export Bookings CSV Error:', err);
+        res.status(500).json({ error: "ไม่สามารถส่งออกข้อมูลการจองเป็น CSV ได้" });
     }
 };
 

@@ -7,7 +7,7 @@ exports.saveConsent = async (req, res) => {
         const userAgent = req.headers['user-agent'] || 'unknown';
 
         await pool.query(
-            "INSERT INTO cookie_consents (ip_address, user_agent, analytics_accepted, marketing_accepted) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO cookie_consents (ip_address, user_agent, analytics_accepted, marketing_accepted) VALUES (?, ?, ?, ?)",
             [ip, userAgent, !!analytics, !!marketing]
         );
 
@@ -120,10 +120,10 @@ exports.getUtilizationHeatmap = async (req, res) => {
         const [courtRows] = await pool.query("SELECT COUNT(*) as cnt FROM courts");
         const totalCourts = parseInt(courtRows[0]?.cnt || 21, 10);
 
-        // Filter conditions
-        let dateCondition = "CAST(booking_date AS DATE) >= CURRENT_DATE - INTERVAL '" + parseInt(range_days, 10) + " days'";
+        // Filter conditions - parameterized interval to eliminate string concatenation
+        const daysInterval = Math.max(1, Math.min(365, parseInt(range_days, 10) || 30));
         let courtCondition = "";
-        const params = [];
+        const params = [daysInterval];
 
         if (court_id) {
             courtCondition = " AND b.court_id = ?";
@@ -137,7 +137,7 @@ exports.getUtilizationHeatmap = async (req, res) => {
                 SUBSTRING(b.start_time FROM 1 FOR 2)::int as hour_slot,
                 COUNT(*) as count
             FROM bookings b
-            WHERE ${dateCondition}
+            WHERE CAST(booking_date AS DATE) >= CURRENT_DATE - (? || ' days')::interval
               AND b.status IN ('CHECKED_IN', 'PRE_CONFIRMED', 'PENDING')
               ${courtCondition}
             GROUP BY dow, hour_slot
@@ -149,11 +149,11 @@ exports.getUtilizationHeatmap = async (req, res) => {
             SELECT c.type as sport_type, COUNT(b.id) as count
             FROM bookings b
             JOIN courts c ON b.court_id = c.id
-            WHERE ${dateCondition}
+            WHERE CAST(booking_date AS DATE) >= CURRENT_DATE - (? || ' days')::interval
               AND b.status IN ('CHECKED_IN', 'PRE_CONFIRMED', 'PENDING')
             GROUP BY c.type
             ORDER BY count DESC
-        `);
+        `, [daysInterval]);
 
         // Define matrix days: Monday to Sunday
         const days = [
